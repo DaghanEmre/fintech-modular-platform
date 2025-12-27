@@ -1,18 +1,19 @@
 spring:
   application:
     name: customer-service
-  
-server:
-  port: 8081
+  profiles:
+    active: dev
 
-# Database configuration (to be configured later)
-# spring:
-#   datasource:
-#     url: jdbc:postgresql://localhost:5432/customer_db
-#     username: postgres
-#     password: postgres
+# Actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
 
-# Logging
 logging:
   level:
     com.daghanemre.fintech.customer: DEBUG
