@@ -1,0 +1,27 @@
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+
+# Build
+target/
+build/
+*.class
+*.jar
+*.war
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+*.env.local
+
+# Dependencies
+node_modules/
