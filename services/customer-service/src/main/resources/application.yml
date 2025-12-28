@@ -2,18 +2,11 @@ spring:
   application:
     name: customer-service
   profiles:
-    active: dev
+    active: ${SPRING_PROFILES_ACTIVE:dev}
 
-# Actuator endpoints
+# Common Actuator settings (base-path rarely changes)
+# If you need profile-specific actuator paths, move this to profile files
 management:
   endpoints:
     web:
-      exposure:
-        include: health,info,metrics
-  endpoint:
-    health:
-      show-details: always
-
-logging:
-  level:
-    com.daghanemre.fintech.customer: DEBUG
+      base-path: /actuator

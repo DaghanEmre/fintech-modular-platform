@@ -1,12 +1,48 @@
 server:
   port: 8081
+  shutdown: graceful
+  compression:
+    enabled: true
 
 spring:
   datasource:
     url: ${DATABASE_URL}
     username: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: validate  # Production'da ASLA update/create kullanma!
     show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  # Graceful shutdown for K8s/Cloud environments
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+
+# Production actuator - minimal exposure
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus  # Sadece gerekli olanlar
+  endpoint:
+    health:
+      show-details: when-authorized  # Güvenlik için
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Production logging - structured for log aggregation
+logging:
+  level:
+    root: INFO
+    com.daghanemre.fintech.customer: INFO
+  pattern:
+    console: '{"timestamp":"%d{yyyy-MM-dd HH:mm:ss}","level":"%level","logger":"%logger{36}","message":"%msg"}%n'
