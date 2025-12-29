@@ -25,3 +25,7 @@ logs/
 
 # Dependencies
 node_modules/
+
+# Local developer overrides
+**/application-local.yml
+**/application-local.properties

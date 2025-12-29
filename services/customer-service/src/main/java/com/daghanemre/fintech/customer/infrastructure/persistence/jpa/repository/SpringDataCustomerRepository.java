@@ -15,7 +15,7 @@ import java.util.UUID;
  * The domain port (CustomerRepository) is implemented by
  * CustomerJpaRepositoryAdapter, which uses this repository internally.
  */
-interface SpringDataCustomerRepository extends JpaRepository<CustomerJpaEntity, UUID> {
+public interface SpringDataCustomerRepository extends JpaRepository<CustomerJpaEntity, UUID> {
 
     /**
      * Finds a customer by email address.

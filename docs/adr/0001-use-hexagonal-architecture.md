@@ -1,6 +1,6 @@
 # 1. Adopt Hexagonal Architecture with Ports and Adapters
 
-**Date:** 2024-12-27
+**Date:** 2025-12-27
 
 **Status:** Accepted
 
