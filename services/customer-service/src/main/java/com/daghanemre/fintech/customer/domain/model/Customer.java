@@ -52,16 +52,17 @@ public class Customer {
                 CustomerStatus.PENDING,
                 now,
                 now,
-                null);
+                null // Not deleted
+        );
     }
 
     /**
-     * Reconstitutes an existing Customer aggregate from persistence.
+     * Factory method for reconstituting a Customer from persistence.
      *
-     * <p>
-     * No validation or business rules are executed.
-     * This method is intended strictly for repository adapters.
-     * </p>
+     * Used by infrastructure layer to rebuild domain objects from database.
+     * Does NOT perform business validation (assumes valid persisted state).
+     *
+     * @return Customer instance with existing identity
      */
     public static Customer reconstitute(
             CustomerId id,
@@ -70,7 +71,13 @@ public class Customer {
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
             LocalDateTime deletedAt) {
-        return new Customer(id, email, status, createdAt, updatedAt, deletedAt);
+        return new Customer(
+                id,
+                email,
+                status,
+                createdAt,
+                updatedAt,
+                deletedAt);
     }
 
     private Customer(

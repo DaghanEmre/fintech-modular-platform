@@ -65,6 +65,20 @@ public record CustomerId(UUID value) {
     }
 
     /**
+     * Creates a CustomerId from a UUID instance.
+     *
+     * Used primarily by infrastructure layer when reconstituting
+     * domain objects from persistence.
+     *
+     * @param value UUID instance
+     * @return CustomerId instance
+     * @throws IllegalArgumentException if value is null
+     */
+    public static CustomerId of(UUID value) {
+        return new CustomerId(value);
+    }
+
+    /**
      * Returns the string representation of this CustomerId.
      *
      * @return UUID as string
