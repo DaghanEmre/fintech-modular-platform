@@ -15,6 +15,9 @@ import java.util.UUID;
  */
 public record CustomerId(UUID value) {
 
+    private static final java.util.regex.Pattern UUID_PATTERN = java.util.regex.Pattern.compile(
+            "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
+
     /**
      * Compact constructor validating that the UUID value is not null.
      *
@@ -57,8 +60,13 @@ public record CustomerId(UUID value) {
             throw new IllegalArgumentException("CustomerId string cannot be null or blank");
         }
 
+        String trimmedValue = value.trim();
+        if (!UUID_PATTERN.matcher(trimmedValue).matches()) {
+            throw new IllegalArgumentException("Invalid CustomerId format: " + value);
+        }
+
         try {
-            return new CustomerId(UUID.fromString(value.trim()));
+            return new CustomerId(UUID.fromString(trimmedValue));
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("Invalid CustomerId format: " + value, ex);
         }
