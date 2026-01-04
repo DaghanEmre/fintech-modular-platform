@@ -1,6 +1,7 @@
 package com.daghanemre.fintech.customer.infrastructure.config;
 
 import com.daghanemre.fintech.customer.application.usecase.ActivateCustomerUseCase;
+import com.daghanemre.fintech.customer.application.usecase.ChangeCustomerEmailUseCase;
 import com.daghanemre.fintech.customer.domain.port.CustomerRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,5 +33,10 @@ public class UseCaseConfiguration {
     @Bean
     public ActivateCustomerUseCase activateCustomerUseCase(CustomerRepository customerRepository) {
         return new ActivateCustomerUseCase(customerRepository);
+    }
+
+    @Bean
+    public ChangeCustomerEmailUseCase changeCustomerEmailUseCase(CustomerRepository customerRepository) {
+        return new ChangeCustomerEmailUseCase(customerRepository);
     }
 }
