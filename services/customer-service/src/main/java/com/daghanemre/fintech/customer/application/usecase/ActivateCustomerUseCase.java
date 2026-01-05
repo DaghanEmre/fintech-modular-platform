@@ -54,7 +54,7 @@ public class ActivateCustomerUseCase {
      */
     public ActivateCustomerUseCase(CustomerRepository customerRepository) {
         if (customerRepository == null) {
-            throw new IllegalArgumentException("CustomerRepository must not be null");
+            throw new IllegalArgumentException("customerRepository must not be null");
         }
         this.customerRepository = customerRepository;
     }

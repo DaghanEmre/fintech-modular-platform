@@ -50,9 +50,10 @@ public class ChangeCustomerEmailUseCase {
      * @throws IllegalArgumentException if repository is null
      */
     public ChangeCustomerEmailUseCase(CustomerRepository customerRepository) {
-        this.customerRepository = Objects.requireNonNull(
-                customerRepository,
-                "customerRepository must not be null");
+        if (customerRepository == null) {
+            throw new IllegalArgumentException("customerRepository must not be null");
+        }
+        this.customerRepository = customerRepository;
     }
 
     /**
@@ -79,18 +80,33 @@ public class ChangeCustomerEmailUseCase {
      * <ul>
      * <li>{@link IllegalArgumentException} - if customerId or newEmail is null</li>
      * <li>{@link CustomerNotFoundException} - if customer does not exist</li>
-     * <li>{@link IllegalStateException} - if customer is deleted (domain rule)</li>
+     * <li>{@link com.daghanemre.fintech.customer.domain.exception.CustomerDeletedException}
+     * - if customer is deleted</li>
      * </ul>
      *
      * @param customerId unique identifier of the customer
      * @param newEmail   new email address
-     * @throws IllegalArgumentException  if inputs are null
-     * @throws CustomerNotFoundException if customer is not found
-     * @throws IllegalStateException     if customer is deleted
+     * @throws IllegalArgumentException                                                  if
+     *                                                                                   inputs
+     *                                                                                   are
+     *                                                                                   null
+     * @throws CustomerNotFoundException                                                 if
+     *                                                                                   customer
+     *                                                                                   is
+     *                                                                                   not
+     *                                                                                   found
+     * @throws com.daghanemre.fintech.customer.domain.exception.CustomerDeletedException if
+     *                                                                                   customer
+     *                                                                                   is
+     *                                                                                   deleted
      */
     public void execute(CustomerId customerId, Email newEmail) {
-        Objects.requireNonNull(customerId, "customerId must not be null");
-        Objects.requireNonNull(newEmail, "newEmail must not be null");
+        if (customerId == null) {
+            throw new IllegalArgumentException("customerId must not be null");
+        }
+        if (newEmail == null) {
+            throw new IllegalArgumentException("newEmail must not be null");
+        }
 
         // 1. Retrieve aggregate
         Customer customer = customerRepository.findById(customerId)

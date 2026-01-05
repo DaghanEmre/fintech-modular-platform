@@ -1,5 +1,6 @@
 package com.daghanemre.fintech.customer.domain.model;
 
+import com.daghanemre.fintech.customer.domain.exception.*;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -39,7 +40,7 @@ class CustomerTest {
     void suspend_ShouldTransitionFromActiveToSuspended() {
         Customer customer = createActiveCustomer();
 
-        customer.suspend("Fraud suspicion");
+        customer.suspend(StateChangeReason.of("Fraud suspicion"));
 
         assertEquals(CustomerStatus.SUSPENDED, customer.getStatus());
     }
@@ -48,8 +49,7 @@ class CustomerTest {
     void suspend_ShouldThrowException_WhenReasonIsMissing() {
         Customer customer = createActiveCustomer();
 
-        assertThrows(IllegalArgumentException.class, () -> customer.suspend(null));
-        assertThrows(IllegalArgumentException.class, () -> customer.suspend("   "));
+        assertThrows(NullPointerException.class, () -> customer.suspend(null));
     }
 
     @Test
@@ -57,15 +57,15 @@ class CustomerTest {
         Customer customer = Customer.create(Email.of("test@example.com"));
         // status = PENDING
 
-        assertThrows(IllegalStateException.class,
-                () -> customer.suspend("Reason"));
+        assertThrows(InvalidCustomerStatusTransitionException.class,
+                () -> customer.suspend(StateChangeReason.of("Reason")));
     }
 
     @Test
     void block_ShouldTransitionToBlocked() {
         Customer customer = createActiveCustomer();
 
-        customer.block("AML list match");
+        customer.block(StateChangeReason.of("AML list match"));
 
         assertEquals(CustomerStatus.BLOCKED, customer.getStatus());
     }
@@ -74,10 +74,10 @@ class CustomerTest {
     void block_ShouldBeIdempotent() {
         Customer customer = createActiveCustomer();
 
-        customer.block("First reason");
+        customer.block(StateChangeReason.of("First reason"));
         LocalDateTime firstUpdate = customer.getUpdatedAt();
 
-        customer.block("Second reason");
+        customer.block(StateChangeReason.of("Second reason"));
 
         assertEquals(CustomerStatus.BLOCKED, customer.getStatus());
         assertEquals(firstUpdate, customer.getUpdatedAt());
@@ -110,13 +110,20 @@ class CustomerTest {
         Customer customer = createActiveCustomer();
         customer.delete();
 
-        assertThrows(IllegalStateException.class, customer::activate);
-        assertThrows(IllegalStateException.class,
-                () -> customer.suspend("Reason"));
-        assertThrows(IllegalStateException.class,
-                () -> customer.block("Reason"));
-        assertThrows(IllegalStateException.class,
+        assertThrows(CustomerDeletedException.class, customer::activate);
+        assertThrows(CustomerDeletedException.class,
+                () -> customer.suspend(StateChangeReason.of("Reason")));
+        assertThrows(CustomerDeletedException.class,
+                () -> customer.block(StateChangeReason.of("Reason")));
+        assertThrows(CustomerDeletedException.class,
                 () -> customer.changeEmail(Email.of("new@example.com")));
+    }
+
+    @Test
+    void activate_ShouldThrowException_WhenAlreadyActive() {
+        Customer customer = createActiveCustomer();
+
+        assertThrows(CustomerAlreadyActiveException.class, customer::activate);
     }
 
     @Test

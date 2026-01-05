@@ -1,21 +1,12 @@
 package com.daghanemre.fintech.customer.domain.model;
 
+import com.daghanemre.fintech.customer.domain.exception.*;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Customer Aggregate Root.
- *
- * <p>
- * Represents a single customer within the Customer bounded context.
- * This aggregate is responsible for enforcing all business invariants
- * related to customer lifecycle, identity, and state transitions.
- * </p>
- *
- * <p>
- * Infrastructure concerns (JPA, serialization, messaging) are explicitly
- * excluded from this class.
- * </p>
+ * Customer Aggregate Root (Refactored with Domain Exceptions).
  */
 public class Customer {
 
@@ -33,14 +24,6 @@ public class Customer {
      * =========================
      */
 
-    /**
-     * Creates a new Customer aggregate.
-     *
-     * <p>
-     * Initial status is {@link CustomerStatus#PENDING}.
-     * Audit fields are initialized by the domain.
-     * </p>
-     */
     public static Customer create(Email email) {
         Objects.requireNonNull(email, "email must not be null");
 
@@ -52,18 +35,9 @@ public class Customer {
                 CustomerStatus.PENDING,
                 now,
                 now,
-                null // Not deleted
-        );
+                null);
     }
 
-    /**
-     * Factory method for reconstituting a Customer from persistence.
-     *
-     * Used by infrastructure layer to rebuild domain objects from database.
-     * Does NOT perform business validation (assumes valid persisted state).
-     *
-     * @return Customer instance with existing identity
-     */
     public static Customer reconstitute(
             CustomerId id,
             Email email,
@@ -104,32 +78,44 @@ public class Customer {
     public void activate() {
         ensureNotDeleted();
 
+        if (this.status == CustomerStatus.ACTIVE) {
+            throw new CustomerAlreadyActiveException(this.id);
+        }
+
+        if (this.status == CustomerStatus.BLOCKED) {
+            throw new CustomerBlockedException(this.id);
+        }
+
         if (this.status != CustomerStatus.PENDING &&
                 this.status != CustomerStatus.SUSPENDED) {
-            throw new IllegalStateException(
-                    "Customer cannot be activated from status: " + status);
+            throw new InvalidCustomerStatusTransitionException(
+                    this.id, this.status, CustomerStatus.ACTIVE);
         }
 
         this.status = CustomerStatus.ACTIVE;
         touch();
     }
 
-    public void suspend(String reason) {
+    public void suspend(StateChangeReason reason) {
         ensureNotDeleted();
-        requireReason(reason);
+        Objects.requireNonNull(reason, "reason must not be null");
+
+        if (this.status == CustomerStatus.BLOCKED) {
+            throw new CustomerBlockedException(this.id);
+        }
 
         if (this.status != CustomerStatus.ACTIVE) {
-            throw new IllegalStateException(
-                    "Only ACTIVE customers can be suspended");
+            throw new InvalidCustomerStatusTransitionException(
+                    this.id, this.status, CustomerStatus.SUSPENDED);
         }
 
         this.status = CustomerStatus.SUSPENDED;
         touch();
     }
 
-    public void block(String reason) {
+    public void block(StateChangeReason reason) {
         ensureNotDeleted();
-        requireReason(reason);
+        Objects.requireNonNull(reason, "reason must not be null");
 
         if (this.status == CustomerStatus.BLOCKED) {
             return; // idempotent
@@ -141,6 +127,10 @@ public class Customer {
 
     public void markInactive() {
         ensureNotDeleted();
+
+        if (this.status == CustomerStatus.BLOCKED) {
+            throw new CustomerBlockedException(this.id);
+        }
 
         if (this.status == CustomerStatus.INACTIVE) {
             return; // idempotent
@@ -162,15 +152,6 @@ public class Customer {
         touch();
     }
 
-    /**
-     * Soft-deletes this customer.
-     *
-     * <p>
-     * After deletion, no state-changing behavior is allowed.
-     * Status is intentionally NOT changed to INACTIVE; deletion is an orthogonal
-     * lifecycle state.
-     * </p>
-     */
     public void delete() {
         if (this.deletedAt != null) {
             return; // idempotent
@@ -188,17 +169,11 @@ public class Customer {
 
     private void ensureNotDeleted() {
         if (this.deletedAt != null) {
-            throw new IllegalStateException(
-                    "Operation not allowed on deleted customer");
+            throw new CustomerDeletedException(this.id);
         }
     }
 
-    private void requireReason(String reason) {
-        if (reason == null || reason.isBlank()) {
-            throw new IllegalArgumentException("Reason must be provided");
-        }
-    }
-
+    // TODO: Consider Clock abstraction if time-based SLA rules are added
     private void touch() {
         this.updatedAt = LocalDateTime.now();
     }

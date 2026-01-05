@@ -66,7 +66,7 @@ class ChangeCustomerEmailIT extends AbstractIntegrationTest {
 
     @AfterEach
     void tearDown() {
-        jdbcTemplate.execute("DELETE FROM customers");
+        jdbcTemplate.execute("TRUNCATE TABLE customers RESTART IDENTITY CASCADE");
     }
 
     @Nested

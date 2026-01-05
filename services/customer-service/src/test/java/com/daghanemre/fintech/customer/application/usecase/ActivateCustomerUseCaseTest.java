@@ -1,10 +1,9 @@
 package com.daghanemre.fintech.customer.application.usecase;
 
 import com.daghanemre.fintech.customer.application.exception.CustomerNotFoundException;
-import com.daghanemre.fintech.customer.domain.model.Customer;
-import com.daghanemre.fintech.customer.domain.model.CustomerId;
-import com.daghanemre.fintech.customer.domain.model.CustomerStatus;
-import com.daghanemre.fintech.customer.domain.model.Email;
+import com.daghanemre.fintech.customer.domain.exception.CustomerAlreadyActiveException;
+import com.daghanemre.fintech.customer.domain.exception.CustomerDeletedException;
+import com.daghanemre.fintech.customer.domain.model.*;
 import com.daghanemre.fintech.customer.domain.port.CustomerRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,7 +12,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -50,7 +51,7 @@ class ActivateCustomerUseCaseTest {
                     IllegalArgumentException.class,
                     () -> new ActivateCustomerUseCase(null));
 
-            assertTrue(ex.getMessage().contains("CustomerRepository must not be null"));
+            assertTrue(ex.getMessage().contains("customerRepository must not be null"));
         }
     }
 
@@ -85,7 +86,7 @@ class ActivateCustomerUseCaseTest {
             CustomerId customerId = CustomerId.generate();
             Customer customer = Customer.create(Email.of("test@example.com"));
             customer.activate();
-            customer.suspend("Test suspension");
+            customer.suspend(StateChangeReason.of("Test suspension"));
 
             when(customerRepository.findById(customerId))
                     .thenReturn(Optional.of(customer));
@@ -172,7 +173,7 @@ class ActivateCustomerUseCaseTest {
 
             // When/Then
             assertThrows(
-                    IllegalStateException.class,
+                    CustomerAlreadyActiveException.class,
                     () -> useCase.execute(customerId));
 
             verify(customerRepository).findById(customerId);
@@ -193,7 +194,7 @@ class ActivateCustomerUseCaseTest {
 
             // When/Then
             assertThrows(
-                    IllegalStateException.class,
+                    CustomerDeletedException.class,
                     () -> useCase.execute(customerId));
 
             verify(customerRepository).findById(customerId);

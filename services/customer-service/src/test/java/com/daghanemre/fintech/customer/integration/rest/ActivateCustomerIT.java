@@ -1,8 +1,6 @@
 package com.daghanemre.fintech.customer.integration.rest;
 
-import com.daghanemre.fintech.customer.domain.model.Customer;
-import com.daghanemre.fintech.customer.domain.model.CustomerStatus;
-import com.daghanemre.fintech.customer.domain.model.Email;
+import com.daghanemre.fintech.customer.domain.model.*;
 import com.daghanemre.fintech.customer.domain.port.CustomerRepository;
 import com.daghanemre.fintech.customer.integration.AbstractIntegrationTest;
 import org.junit.jupiter.api.AfterEach;
@@ -63,7 +61,7 @@ class ActivateCustomerIT extends AbstractIntegrationTest {
     @AfterEach
     void tearDown() {
         // Clean up database after each test (isolation)
-        jdbcTemplate.execute("DELETE FROM customers");
+        jdbcTemplate.execute("TRUNCATE TABLE customers RESTART IDENTITY CASCADE");
     }
 
     @Nested
@@ -96,7 +94,7 @@ class ActivateCustomerIT extends AbstractIntegrationTest {
         void shouldActivateSuspendedCustomer() {
             // Given - First activate, then suspend
             testCustomer.activate();
-            testCustomer.suspend("Test suspension");
+            testCustomer.suspend(StateChangeReason.of("Test suspension"));
             customerRepository.save(testCustomer);
 
             String url = "/api/v1/customers/" + testCustomer.getId() + "/activate";
@@ -169,7 +167,7 @@ class ActivateCustomerIT extends AbstractIntegrationTest {
         @DisplayName("should return 409 when customer is BLOCKED")
         void shouldReturn409WhenCustomerBlocked() {
             // Given
-            testCustomer.block("Compliance violation");
+            testCustomer.block(StateChangeReason.of("Compliance violation"));
             customerRepository.save(testCustomer);
 
             String url = "/api/v1/customers/" + testCustomer.getId() + "/activate";
@@ -178,8 +176,8 @@ class ActivateCustomerIT extends AbstractIntegrationTest {
             ResponseEntity<String> response = restTemplate.postForEntity(url, null, String.class);
 
             // Then
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-            assertThat(response.getBody()).contains("INVALID_STATE_TRANSITION");
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+            assertThat(response.getBody()).contains("CUSTOMER_BLOCKED");
         }
 
         @Test
@@ -196,7 +194,7 @@ class ActivateCustomerIT extends AbstractIntegrationTest {
 
             // Then - Domain rejects: already active
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-            assertThat(response.getBody()).contains("INVALID_STATE_TRANSITION");
+            assertThat(response.getBody()).contains("CUSTOMER_ALREADY_ACTIVE");
         }
 
         @Test
@@ -213,7 +211,7 @@ class ActivateCustomerIT extends AbstractIntegrationTest {
 
             // Then
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-            assertThat(response.getBody()).contains("INVALID_STATE_TRANSITION");
+            assertThat(response.getBody()).contains("INVALID_STATUS_TRANSITION");
         }
     }
 

@@ -2,6 +2,8 @@ package com.daghanemre.fintech.customer.application.exception;
 
 import com.daghanemre.fintech.customer.domain.model.CustomerId;
 
+import java.util.Objects;
+
 /**
  * Exception thrown when a customer cannot be found by their identifier.
  *
@@ -39,7 +41,7 @@ public class CustomerNotFoundException extends RuntimeException {
      */
     public CustomerNotFoundException(CustomerId customerId) {
         super("Customer not found: " + customerId);
-        this.customerId = customerId;
+        this.customerId = Objects.requireNonNull(customerId, "customerId must not be null");
     }
 
     /**

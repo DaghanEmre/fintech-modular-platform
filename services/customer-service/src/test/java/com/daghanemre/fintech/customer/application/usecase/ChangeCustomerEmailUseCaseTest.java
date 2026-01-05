@@ -1,6 +1,7 @@
 package com.daghanemre.fintech.customer.application.usecase;
 
 import com.daghanemre.fintech.customer.application.exception.CustomerNotFoundException;
+import com.daghanemre.fintech.customer.domain.exception.CustomerDeletedException;
 import com.daghanemre.fintech.customer.domain.model.Customer;
 import com.daghanemre.fintech.customer.domain.model.CustomerId;
 import com.daghanemre.fintech.customer.domain.model.Email;
@@ -189,7 +190,7 @@ class ChangeCustomerEmailUseCaseTest {
 
             // When/Then
             assertThrows(
-                    IllegalStateException.class,
+                    CustomerDeletedException.class,
                     () -> useCase.execute(customerId, newEmail));
 
             verify(customerRepository).findById(customerId);

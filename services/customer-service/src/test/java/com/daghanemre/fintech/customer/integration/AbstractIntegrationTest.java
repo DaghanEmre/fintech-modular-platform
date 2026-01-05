@@ -1,94 +1,55 @@
 package com.daghanemre.fintech.customer.integration;
 
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * Base class for integration tests using Testcontainers.
+ * Base class for integration tests using Testcontainers (Singleton Pattern).
  *
  * <p>
  * Provides:
  * <ul>
- * <li>PostgreSQL container setup</li>
+ * <li>PostgreSQL container setup (Singleton)</li>
  * <li>Spring Boot application context</li>
  * <li>Dynamic database configuration</li>
- * <li>Container lifecycle management</li>
+ * <li>test profile activation</li>
  * </ul>
  *
  * <p>
- * <b>Usage:</b>
- * 
- * <pre>{@code
- * @DisplayName("Activate Customer Integration Test")
- * class ActivateCustomerIT extends AbstractIntegrationTest {
- *     // Tests here
- * }
- * }</pre>
- *
- * <p>
- * <b>Container Strategy:</b>
- * <ul>
- * <li>Single container shared across all tests (performance)</li>
- * <li>Database cleaned between tests (isolation)</li>
- * <li>Container reused within test class (JUnit 5 lifecycle)</li>
- * </ul>
- *
- * <p>
- * <b>Design Decisions:</b>
- * <ul>
- * <li>PostgreSQL 15 (matches production version)</li>
- * <li>Random port mapping (parallel test execution)</li>
- * <li>Test profile active (application-test.yml)</li>
- * </ul>
+ * <b>Singleton Container Pattern:</b>
+ * The container is started once and shared across all test classes.
+ * This prevents port mismatch issues between Hikari connection pool and
+ * newly started containers during test suite execution.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Testcontainers
+@ActiveProfiles("test")
 public abstract class AbstractIntegrationTest {
 
     /**
-     * PostgreSQL container shared across all integration tests.
+     * Testcontainers singleton pattern.
      *
      * <p>
-     * Container lifecycle:
-     * <ul>
-     * <li>Started once before first test</li>
-     * <li>Reused across all test classes</li>
-     * <li>Stopped after all tests complete</li>
-     * </ul>
-     *
-     * <p>
-     * Configuration:
-     * <ul>
-     * <li>Image: postgres:15-alpine</li>
-     * <li>Database: testdb</li>
-     * <li>Username: test</li>
-     * <li>Password: test</li>
-     * </ul>
+     * PostgreSQLContainer implements AutoCloseable, but container lifecycle
+     * is managed by Testcontainers + Ryuk and cleaned up on JVM shutdown.
+     * This is a known false-positive for static analysis tools.
+     * </p>
      */
-    @Container
-    protected static final PostgreSQLContainer<?> POSTGRES_CONTAINER = new PostgreSQLContainer<>("postgres:15-alpine")
-            .withDatabaseName("testdb")
-            .withUsername("test")
-            .withPassword("test")
-            .withReuse(true);
+    @SuppressWarnings("resource")
+    protected static final PostgreSQLContainer<?> POSTGRES_CONTAINER;
+
+    static {
+        POSTGRES_CONTAINER = new PostgreSQLContainer<>("postgres:15-alpine")
+                .withDatabaseName("testdb")
+                .withUsername("test")
+                .withPassword("test");
+        POSTGRES_CONTAINER.start();
+    }
 
     /**
-     * Configures Spring Boot datasource from Testcontainers.
-     *
-     * <p>
-     * Dynamically injects database connection properties:
-     * <ul>
-     * <li>JDBC URL (with random port)</li>
-     * <li>Username</li>
-     * <li>Password</li>
-     * </ul>
-     *
-     * <p>
-     * This overrides properties in application-test.yml.
+     * Configures Spring Boot datasource from the singleton Testcontainer.
      *
      * @param registry Spring's dynamic property registry
      */
