@@ -1,12 +1,16 @@
 package com.daghanemre.fintech.customer.domain.model;
 
-import com.daghanemre.fintech.customer.domain.exception.*;
+import com.daghanemre.fintech.common.specification.Specification;
+import com.daghanemre.fintech.common.specification.SpecificationException;
+import com.daghanemre.fintech.common.specification.SpecificationViolation;
+
+import com.daghanemre.fintech.customer.domain.specification.CustomerSpecifications;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Customer Aggregate Root (Refactored with Domain Exceptions).
+ * Customer Aggregate Root (Refactored with Specification Pattern).
  */
 public class Customer {
 
@@ -76,45 +80,22 @@ public class Customer {
      */
 
     public void activate() {
-        ensureNotDeleted();
-
-        if (this.status == CustomerStatus.ACTIVE) {
-            throw new CustomerAlreadyActiveException(this.id);
-        }
-
-        if (this.status == CustomerStatus.BLOCKED) {
-            throw new CustomerBlockedException(this.id);
-        }
-
-        if (this.status != CustomerStatus.PENDING &&
-                this.status != CustomerStatus.SUSPENDED) {
-            throw new InvalidCustomerStatusTransitionException(
-                    this.id, this.status, CustomerStatus.ACTIVE);
-        }
+        ensure(CustomerSpecifications.canBeActivated());
 
         this.status = CustomerStatus.ACTIVE;
         touch();
     }
 
     public void suspend(StateChangeReason reason) {
-        ensureNotDeleted();
+        ensure(CustomerSpecifications.canBeSuspended());
         Objects.requireNonNull(reason, "reason must not be null");
-
-        if (this.status == CustomerStatus.BLOCKED) {
-            throw new CustomerBlockedException(this.id);
-        }
-
-        if (this.status != CustomerStatus.ACTIVE) {
-            throw new InvalidCustomerStatusTransitionException(
-                    this.id, this.status, CustomerStatus.SUSPENDED);
-        }
 
         this.status = CustomerStatus.SUSPENDED;
         touch();
     }
 
     public void block(StateChangeReason reason) {
-        ensureNotDeleted();
+        ensure(CustomerSpecifications.canBeBlocked());
         Objects.requireNonNull(reason, "reason must not be null");
 
         if (this.status == CustomerStatus.BLOCKED) {
@@ -126,11 +107,7 @@ public class Customer {
     }
 
     public void markInactive() {
-        ensureNotDeleted();
-
-        if (this.status == CustomerStatus.BLOCKED) {
-            throw new CustomerBlockedException(this.id);
-        }
+        ensure(CustomerSpecifications.canBeBlocked()); // Using same rules as blocking for now
 
         if (this.status == CustomerStatus.INACTIVE) {
             return; // idempotent
@@ -141,7 +118,7 @@ public class Customer {
     }
 
     public void changeEmail(Email newEmail) {
-        ensureNotDeleted();
+        ensure(CustomerSpecifications.canChangeEmail());
         Objects.requireNonNull(newEmail, "newEmail must not be null");
 
         if (this.email.equals(newEmail)) {
@@ -167,13 +144,28 @@ public class Customer {
      * =========================
      */
 
-    private void ensureNotDeleted() {
-        if (this.deletedAt != null) {
-            throw new CustomerDeletedException(this.id);
+    /**
+     * Enforces that the aggregate satisfies the given specification.
+     *
+     * @param spec Specification to evaluate
+     * @throws SpecificationException if not satisfied
+     */
+    private void ensure(Specification<Customer> spec) {
+        if (!spec.isSatisfiedBy(this)) {
+            SpecificationViolation violation = spec.violation(this);
+
+            // Fail-safe: Provide generic violation if spec failed but didn't provide
+            // details
+            if (!violation.isPresent()) {
+                violation = new SpecificationViolation(
+                        "SPEC_VIOLATION",
+                        "Business rule violated: " + spec.getClass().getSimpleName());
+            }
+
+            throw new SpecificationException(violation);
         }
     }
 
-    // TODO: Consider Clock abstraction if time-based SLA rules are added
     private void touch() {
         this.updatedAt = LocalDateTime.now();
     }

@@ -1,8 +1,7 @@
 package com.daghanemre.fintech.customer.application.usecase;
 
 import com.daghanemre.fintech.customer.application.exception.CustomerNotFoundException;
-import com.daghanemre.fintech.customer.domain.exception.CustomerAlreadyActiveException;
-import com.daghanemre.fintech.customer.domain.exception.CustomerDeletedException;
+import com.daghanemre.fintech.common.specification.SpecificationException;
 import com.daghanemre.fintech.customer.domain.model.*;
 import com.daghanemre.fintech.customer.domain.port.CustomerRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -173,7 +172,7 @@ class ActivateCustomerUseCaseTest {
 
             // When/Then
             assertThrows(
-                    CustomerAlreadyActiveException.class,
+                    SpecificationException.class,
                     () -> useCase.execute(customerId));
 
             verify(customerRepository).findById(customerId);
@@ -194,7 +193,7 @@ class ActivateCustomerUseCaseTest {
 
             // When/Then
             assertThrows(
-                    CustomerDeletedException.class,
+                    SpecificationException.class,
                     () -> useCase.execute(customerId));
 
             verify(customerRepository).findById(customerId);

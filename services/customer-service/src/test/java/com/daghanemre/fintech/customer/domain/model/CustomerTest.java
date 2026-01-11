@@ -1,10 +1,11 @@
 package com.daghanemre.fintech.customer.domain.model;
 
-import com.daghanemre.fintech.customer.domain.exception.*;
+import com.daghanemre.fintech.common.specification.SpecificationException;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CustomerTest {
@@ -57,8 +58,9 @@ class CustomerTest {
         Customer customer = Customer.create(Email.of("test@example.com"));
         // status = PENDING
 
-        assertThrows(InvalidCustomerStatusTransitionException.class,
-                () -> customer.suspend(StateChangeReason.of("Reason")));
+        assertThatThrownBy(() -> customer.suspend(StateChangeReason.of("Reason")))
+                .isInstanceOf(SpecificationException.class)
+                .hasMessageContaining("ACTIVE");
     }
 
     @Test
@@ -110,20 +112,29 @@ class CustomerTest {
         Customer customer = createActiveCustomer();
         customer.delete();
 
-        assertThrows(CustomerDeletedException.class, customer::activate);
-        assertThrows(CustomerDeletedException.class,
-                () -> customer.suspend(StateChangeReason.of("Reason")));
-        assertThrows(CustomerDeletedException.class,
-                () -> customer.block(StateChangeReason.of("Reason")));
-        assertThrows(CustomerDeletedException.class,
-                () -> customer.changeEmail(Email.of("new@example.com")));
+        assertThatThrownBy(customer::activate)
+                .isInstanceOf(SpecificationException.class)
+                .extracting("code").isEqualTo("CUSTOMER_DELETED");
+
+        assertThatThrownBy(() -> customer.suspend(StateChangeReason.of("Reason")))
+                .isInstanceOf(SpecificationException.class)
+                .extracting("code").isEqualTo("CUSTOMER_DELETED");
+
+        assertThatThrownBy(() -> customer.block(StateChangeReason.of("Reason")))
+                .isInstanceOf(SpecificationException.class)
+                .extracting("code").isEqualTo("CUSTOMER_DELETED");
+
+        assertThatThrownBy(() -> customer.changeEmail(Email.of("new@example.com")))
+                .isInstanceOf(SpecificationException.class)
+                .extracting("code").isEqualTo("CUSTOMER_DELETED");
     }
 
     @Test
     void activate_ShouldThrowException_WhenAlreadyActive() {
         Customer customer = createActiveCustomer();
 
-        assertThrows(CustomerAlreadyActiveException.class, customer::activate);
+        assertThatThrownBy(customer::activate)
+                .isInstanceOf(SpecificationException.class);
     }
 
     @Test

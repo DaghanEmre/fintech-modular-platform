@@ -6,8 +6,6 @@ import com.daghanemre.fintech.customer.domain.model.CustomerId;
 import com.daghanemre.fintech.customer.domain.model.Email;
 import com.daghanemre.fintech.customer.domain.port.CustomerRepository;
 
-import java.util.Objects;
-
 /**
  * Use case for changing a customer's email address.
  *

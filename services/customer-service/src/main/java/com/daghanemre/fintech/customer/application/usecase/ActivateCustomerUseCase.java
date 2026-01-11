@@ -5,8 +5,6 @@ import com.daghanemre.fintech.customer.domain.model.Customer;
 import com.daghanemre.fintech.customer.domain.model.CustomerId;
 import com.daghanemre.fintech.customer.domain.port.CustomerRepository;
 
-import java.util.Objects;
-
 /**
  * Use case for activating a customer account.
  *

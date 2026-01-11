@@ -1,8 +1,13 @@
 package com.daghanemre.fintech.customer.infrastructure.adapter.rest.exception;
 
 import com.daghanemre.fintech.customer.application.exception.CustomerNotFoundException;
-import com.daghanemre.fintech.customer.domain.exception.*;
 import com.daghanemre.fintech.customer.infrastructure.adapter.rest.dto.ErrorResponse;
+import com.daghanemre.fintech.common.specification.SpecificationException;
+import com.daghanemre.fintech.common.specification.SpecificationViolation;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -11,15 +16,18 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import jakarta.validation.ConstraintViolationException;
-
 /**
- * Global exception handler for REST API (Refactored - Type-Based).
+ * Global exception handler for REST API (Refactored - Specification Based).
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
         private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+        private final MeterRegistry meterRegistry;
+
+        public GlobalExceptionHandler(MeterRegistry meterRegistry) {
+                this.meterRegistry = meterRegistry;
+        }
 
         /*
          * =========================
@@ -37,41 +45,37 @@ public class GlobalExceptionHandler {
 
         /*
          * =========================
-         * Domain Layer Exceptions
+         * Domain Layer Exceptions (Specification Pattern)
          * =========================
          */
 
-        @ExceptionHandler(CustomerDeletedException.class)
-        public ResponseEntity<ErrorResponse> handleCustomerDeleted(CustomerDeletedException ex) {
-                log.warn("Attempted operation on deleted customer: {}", ex.getMessage());
+        @ExceptionHandler(SpecificationException.class)
+        public ResponseEntity<ErrorResponse> handleSpecificationException(SpecificationException ex,
+                        HttpServletRequest request) {
+                SpecificationViolation violation = ex.getViolation();
+                HttpStatus status = SpecificationHttpStatusMapper.resolve(violation.code());
+
+                log.warn("Domain specification violation [{}]: {}", violation.code(), violation.message());
+
+                // Record metric
+                String normalizedPath = normalizePath(request.getRequestURI());
+                String operation = request.getMethod() + " " + normalizedPath;
+
+                meterRegistry.counter("domain.violation.total",
+                                Tags.of("code", violation.code(),
+                                                "operation", operation))
+                                .increment();
+
                 return ResponseEntity
-                                .status(HttpStatus.GONE)
-                                .body(new ErrorResponse("CUSTOMER_DELETED", ex.getMessage()));
+                                .status(status)
+                                .body(new ErrorResponse(violation.code(), violation.message()));
         }
 
-        @ExceptionHandler(CustomerAlreadyActiveException.class)
-        public ResponseEntity<ErrorResponse> handleCustomerAlreadyActive(CustomerAlreadyActiveException ex) {
-                log.warn("Customer already active: {}", ex.getMessage());
-                return ResponseEntity
-                                .status(HttpStatus.CONFLICT)
-                                .body(new ErrorResponse("CUSTOMER_ALREADY_ACTIVE", ex.getMessage()));
-        }
-
-        @ExceptionHandler(CustomerBlockedException.class)
-        public ResponseEntity<ErrorResponse> handleCustomerBlocked(CustomerBlockedException ex) {
-                log.warn("Customer blocked: {}", ex.getMessage());
-                return ResponseEntity
-                                .status(HttpStatus.FORBIDDEN)
-                                .body(new ErrorResponse("CUSTOMER_BLOCKED", ex.getMessage()));
-        }
-
-        @ExceptionHandler(InvalidCustomerStatusTransitionException.class)
-        public ResponseEntity<ErrorResponse> handleInvalidStatusTransition(
-                        InvalidCustomerStatusTransitionException ex) {
-                log.warn("Invalid status transition: {}", ex.getMessage());
-                return ResponseEntity
-                                .status(HttpStatus.CONFLICT)
-                                .body(new ErrorResponse("INVALID_STATUS_TRANSITION", ex.getMessage()));
+        private String normalizePath(String path) {
+                // Basic normalization: replace UUIDs with {id} placeholder to prevent high
+                // cardinality
+                return path.replaceAll("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+                                "{id}");
         }
 
         /*
