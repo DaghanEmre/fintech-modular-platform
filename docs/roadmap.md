@@ -224,14 +224,26 @@ Each phase builds on the previous one but may be **revisited or refactored** as 
 
 This roadmap is **not fixed**.
 
-Future improvements may include:
-- Architectural refactoring
-- New services or domains
-- Performance optimizations
-- Security enhancements
-- New Java or Spring ecosystem features
-
 The roadmap will evolve as the **Java ecosystem and financial systems evolve**.
+
+---
+
+## 🏗️ Domain Architecture Roadmap
+
+### Completed
+- [x] Specification Pattern adoption (`customer-service`)
+- [x] Domain violation observability via metrics
+
+### Planned
+- [ ] Apply Specification Pattern to:
+  - [ ] Payment Service
+  - [ ] Account Service
+  - [ ] Limits Service
+- [ ] Standardize violation codes across services
+- [ ] Auto-generate OpenAPI error schemas from violation codes
+- [ ] Correlate domain violations with traces (TraceId propagation)
+
+---
 
 ---
 

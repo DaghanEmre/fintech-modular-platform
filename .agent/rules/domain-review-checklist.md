@@ -14,3 +14,11 @@ Domain Review Checklist:
 - Are side effects avoided inside the domain?
 - Is this model testable without Spring or a database?
 - Does the design allow future evolution without breaking invariants?
+
+Specification Pattern Review:
+- Are all domain invariants enforced via Specifications?
+- Are specifications atomic, composable, and domain-specific?
+- Is any business logic hidden in if/else blocks?
+- Does each failing rule return a meaningful SpecificationViolation?
+- Are OR-compositions semantically explicit (no ambiguous violations)?
+- Can each rule be unit-tested in isolation?

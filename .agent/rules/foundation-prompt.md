@@ -32,6 +32,14 @@ Core constraints:
 - Overengineering is avoided, but future evolution is anticipated
 - Prefer explicit architectural and design decisions over generic best practices
 
+Domain Rule Modeling:
+- Business rules MUST be expressed declaratively using the Specification Pattern.
+- Imperative if-else chains for domain invariants are forbidden.
+- Rules must be composable (AND / OR / NOT) and reusable across use cases.
+- Aggregates enforce rules internally via guard methods (e.g. ensure(spec)).
+- Rule violations are first-class domain concepts (SpecificationViolation).
+- Exceptions are transport mechanisms only, not business semantics.
+
 Technology stack (current and future):
 - Java, Spring Boot, Maven/Gradle
 - Microservices (Customer, Payment, Fraud, Notification)

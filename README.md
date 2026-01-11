@@ -121,6 +121,8 @@ To maintain this repository as a **living portfolio**, demonstrating:
 - Advanced backend engineering skills
 - Distributed systems thinking
 - Clean architecture and design decisions
+- Declarative domain rules via Specification Pattern
+- Metrics-first observability strategy
 - Continuous learning mindset
 
 ---

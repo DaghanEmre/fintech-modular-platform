@@ -62,6 +62,20 @@ The architecture embraces these constraints instead of abstracting them away.
 
 ---
 
+### 4️⃣ Declarative Domain Model
+The platform adopts a declarative approach to domain rule enforcement.
+
+- Business rules are expressed as composable specifications.
+- Aggregates expose intention-revealing methods without conditional logic.
+- Rule violations are first-class concepts with explicit semantics.
+
+This enables:
+- Consistent rule modeling across microservices
+- Fine-grained observability of business failures
+- High testability and low coupling
+
+---
+
 ## 🧱 Architectural Style
 
 ### Microservice-Based Architecture

@@ -13,3 +13,11 @@ Coding Principles:
 - Explicit state transitions, no hidden side effects
 - Test-first mindset for domain logic
 - Favor clarity over cleverness
+
+Specification Pattern Usage:
+- Do NOT implement business rules with nested if/else statements.
+- Each business rule MUST be modeled as a Specification<T>.
+- Specifications MUST be pure, stateless, and side-effect free.
+- Composite rules MUST express domain semantics clearly.
+- Avoid generic OR-composition when domain semantics require explicit meaning.
+- Prefer semantic specifications (e.g. CustomerCanBeActivatedSpec) over boolean logic.

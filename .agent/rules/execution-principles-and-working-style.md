@@ -15,6 +15,13 @@ Execution Principles & Working Style:
    - Avoid premature abstractions
    - Write production-grade Java (no pseudo-code)
    - Add Javadoc where it improves understanding
+Domain Rule Workflow:
+- Identify domain invariants before writing code.
+- Model each invariant as a Specification.
+- Compose rules declaratively instead of branching logic.
+- Enforce rules inside the aggregate, not in use cases.
+- Add unit tests per specification before integration.
+- Ensure violations are observable via metrics.
 
 3. Roadmap mindset:
    Short-term:

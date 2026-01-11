@@ -1,7 +1,6 @@
 package com.daghanemre.fintech.customer.domain.specification;
 
 import com.daghanemre.fintech.customer.domain.model.Customer;
-import com.daghanemre.fintech.customer.domain.model.CustomerStatus;
 import com.daghanemre.fintech.customer.domain.model.Email;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
