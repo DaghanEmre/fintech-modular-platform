@@ -147,23 +147,42 @@ public class Customer {
     /**
      * Enforces that the aggregate satisfies the given specification.
      *
-     * @param spec Specification to evaluate
-     * @throws SpecificationException if not satisfied
+     * <p><b>Specification Contract Enforcement:</b>
+     * <ul>
+     *   <li>If specification is satisfied → return normally</li>
+     *   <li>If specification fails → MUST provide a valid violation</li>
+     *   <li>If specification fails but provides no violation → throw IllegalStateException</li>
+     * </ul>
+     *
+     * <p>This strict contract prevents poorly implemented specifications from reaching production.
+     *
+     * @param specification the business rule to enforce
+     * @throws SpecificationException if specification is violated (business error)
+     * @throws IllegalStateException if specification fails but provides no violation (developer error)
      */
-    private void ensure(Specification<Customer> spec) {
-        if (!spec.isSatisfiedBy(this)) {
-            SpecificationViolation violation = spec.violation(this);
+    private void ensure(Specification<Customer> specification) {
+        Objects.requireNonNull(specification, "specification must not be null");
 
-            // Fail-safe: Provide generic violation if spec failed but didn't provide
-            // details
-            if (!violation.isPresent()) {
-                violation = new SpecificationViolation(
-                        "SPEC_VIOLATION",
-                        "Business rule violated: " + spec.getClass().getSimpleName());
-            }
-
-            throw new SpecificationException(violation);
+        // Happy path: specification satisfied
+        if (specification.isSatisfiedBy(this)) {
+            return;
         }
+
+        // Specification failed - violation MUST be present
+        SpecificationViolation violation = specification.violation(this);
+
+        if (violation == null || !violation.isPresent()) {
+            // This is a DEVELOPER ERROR - specification implementation is broken
+            throw new IllegalStateException(
+                "Specification failed but did not provide a violation: " +
+                specification.getClass().getSimpleName() +
+                ". All failing specifications MUST return a valid SpecificationViolation. " +
+                "This indicates a bug in the specification implementation."
+            );
+        }
+
+        // Business rule violation - throw domain exception
+        throw new SpecificationException(violation);
     }
 
     private void touch() {

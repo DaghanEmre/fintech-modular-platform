@@ -20,6 +20,13 @@ public final class NotSpecification<T> implements Specification<T> {
 
     @Override
     public SpecificationViolation violation(T candidate) {
-        return SpecificationViolation.none();
+        if (isSatisfiedBy(candidate)) {
+            return SpecificationViolation.none();
+        }
+
+        // Negated specification failed, meaning the wrapped spec IS satisfied.
+        return new SpecificationViolation(
+                "SPEC_NOT_FAILED",
+                "Negated rule is satisfied: " + wrapped.getClass().getSimpleName());
     }
 }

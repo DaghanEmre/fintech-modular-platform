@@ -22,12 +22,30 @@ public final class AndSpecification<T> implements Specification<T> {
 
     @Override
     public SpecificationViolation violation(T candidate) {
+        if (isSatisfiedBy(candidate)) {
+            return SpecificationViolation.none();
+        }
+
+        // If not satisfied, at least one of the sub-specifications must be violated.
+        // We prioritize the left violation if it exists.
         if (!left.isSatisfiedBy(candidate)) {
-            return left.violation(candidate);
+            SpecificationViolation violation = left.violation(candidate);
+            if (violation.isPresent()) {
+                return violation;
+            }
         }
+
+        // If left was satisfied or didn't provide a violation, check the right.
         if (!right.isSatisfiedBy(candidate)) {
-            return right.violation(candidate);
+            SpecificationViolation violation = right.violation(candidate);
+            if (violation.isPresent()) {
+                return violation;
+            }
         }
-        return SpecificationViolation.none();
+        
+        // Fallback for unexpected consistency issues between isSatisfiedBy and violation
+        return new SpecificationViolation(
+                "SPEC_AND_FAILED",
+                "Both parts of AND failed to provide a violation code.");
     }
 }

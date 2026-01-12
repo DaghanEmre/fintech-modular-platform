@@ -22,9 +22,12 @@ public final class OrSpecification<T> implements Specification<T> {
 
     @Override
     public SpecificationViolation violation(T candidate) {
-        // Only return none if EITHER is satisfied.
-        // If both fail, we don't have a specific policy on which violation to return,
-        // but typically OR specs are followed by more specific checks or atomic specs.
-        return SpecificationViolation.none();
+        if (isSatisfiedBy(candidate)) {
+            return SpecificationViolation.none();
+        }
+
+        // If both failed, return the left violation as a representative failure.
+        // In the future, we might want to combine violations for better diagnostics.
+        return left.violation(candidate);
     }
 }
