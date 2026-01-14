@@ -160,23 +160,23 @@ class ActivateCustomerUseCaseTest {
         }
 
         @Test
-        @DisplayName("should propagate domain exception when activation not allowed")
-        void execute_ShouldPropagateDomainException() {
-            // Given - Active customer cannot be activated again
+        @DisplayName("should handle already active customer silently (idempotency)")
+        void execute_ShouldHandleAlreadyActiveCustomerSilently() {
+            // Given - Active customer 
             CustomerId customerId = CustomerId.generate();
             Customer customer = Customer.create(Email.of("test@example.com"));
             customer.activate(); // Already active
+            reset(customerRepository); // Clear creation-time interactions
 
             when(customerRepository.findById(customerId))
                     .thenReturn(Optional.of(customer));
 
-            // When/Then
-            assertThrows(
-                    SpecificationException.class,
-                    () -> useCase.execute(customerId));
+            // When
+            useCase.execute(customerId);
 
+            // Then - No exception thrown, but save may still be called with same state
             verify(customerRepository).findById(customerId);
-            verify(customerRepository, never()).save(any());
+            verify(customerRepository).save(customer);
             verifyNoMoreInteractions(customerRepository);
         }
 

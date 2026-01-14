@@ -181,8 +181,8 @@ class ActivateCustomerIT extends AbstractIntegrationTest {
         }
 
         @Test
-        @DisplayName("should return 409 when customer is already ACTIVE")
-        void shouldReturn409WhenCustomerAlreadyActive() {
+        @DisplayName("should handle already ACTIVE customer silently and return 204 No Content")
+        void shouldHandleAlreadyActiveCustomerSilently() {
             // Given - Customer already active
             testCustomer.activate();
             customerRepository.save(testCustomer);
@@ -190,11 +190,10 @@ class ActivateCustomerIT extends AbstractIntegrationTest {
             String url = "/api/v1/customers/" + testCustomer.getId() + "/activate";
 
             // When - Activate again
-            ResponseEntity<String> response = restTemplate.postForEntity(url, null, String.class);
+            ResponseEntity<Void> response = restTemplate.postForEntity(url, null, Void.class);
 
-            // Then - Domain rejects: already active
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
-            assertThat(response.getBody()).contains("CUSTOMER_ALREADY_ACTIVE");
+            // Then - Successful no-op
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         }
 
         @Test

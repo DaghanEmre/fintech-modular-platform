@@ -90,6 +90,46 @@ All specification violations are recorded using Micrometer:
 > [!NOTE]
 > Operation is normalized to avoid high-cardinality metrics.
 
+## Non-Goals: When NOT to Use Specification Pattern
+
+The Specification Pattern is intentionally not applied universally. It is reserved for expressing domain-level business rules and transient invariants, not for all forms of validation or control flow.
+
+The following cases are explicitly excluded from Specification Pattern usage:
+
+### 1. Value Object Validation
+Value objects (e.g., `CustomerId`, `Email`, `StateChangeReason`) are responsible for enforcing their own structural invariants at construction time using compact constructors and factory methods.
+- **Rationale**: These are structural invariants, not business rules. They must be enforced unconditionally. Specifications are conditional and contextual by design.
+
+### 2. Aggregate Creation Rules
+Specifications should not be used for simple aggregate creation unless a complex, cross-field business rule exists. 
+- **Example**: `Customer.create(email)` is a construction concern. Ensuring a valid `Email` is handled by the `Email` value object itself.
+- **Rationale**: Creation is about building a valid initial state. Preconditions should be encoded in constructors or static factories.
+
+### 3. Idempotency Checks
+Idempotency is an aggregate responsibility.
+- **Example**: In `activate()`, the check `if (this.status == ACTIVE) return;` remains inside the aggregate.
+- **Rationale**: Idempotency defines behavior, not eligibility. Specifications answer: *"Can this operation be performed?"* Aggregates decide: *"What happens if it's already in this state?"*
+
+### 4. State Mutation and Side Effects
+Specifications must be pure functions and side-effect free. They must NEVER perform state changes, event publication, or field assignments.
+- **Rationale**: Aggregate roots own mutation and consistency. Specifications only provide the "Yes/No" decision and the reason for failure.
+
+### 5. Technical or Infrastructure Validation
+Specifications are not used for null checks, authorization, API schema validation, or database existence checks. These belong to Controllers, Application Services, or Infrastructure layers.
+
+### 6. Over-Specification of Simple Rules
+Avoid creating specifications for trivial one-off checks that lack reuse or semantic depth (e.g., comparing two fields for equality in a single method).
+
+## When Specification Pattern IS Appropriate
+
+A specification SHOULD be used when:
+1. A business rule governs whether an operation may proceed.
+2. The rule depends on the current aggregate state or external domain data.
+3. The rule produces a domain-specific violation code for observability.
+4. The rule is reusable or composable across different use cases.
+
+**Design Principle**: Specifications protect the aggregate; Aggregates change themselves.
+
 ## Consequences
 
 ### Positive

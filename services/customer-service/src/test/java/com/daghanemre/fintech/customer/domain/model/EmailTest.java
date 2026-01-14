@@ -147,6 +147,26 @@ class EmailTest {
 
             assertTrue(ex.getMessage().contains("Invalid email format"));
         }
+
+        @Test
+        @DisplayName("create - should reject multiple @ symbols")
+        void create_ShouldRejectMultipleAtSymbols() {
+            IllegalArgumentException ex = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> Email.of("user@extra@example.com"));
+
+            assertTrue(ex.getMessage().contains("Invalid email format"));
+        }
+
+        @Test
+        @DisplayName("create - should reject domain labels starting with hyphen")
+        void create_ShouldRejectDomainStartingWithHyphen() {
+            IllegalArgumentException ex = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> Email.of("user@-example.com"));
+
+            assertTrue(ex.getMessage().contains("Invalid email format"));
+        }
     }
 
     @Nested

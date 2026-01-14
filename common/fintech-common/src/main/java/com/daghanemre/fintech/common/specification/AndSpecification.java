@@ -26,26 +26,13 @@ public final class AndSpecification<T> implements Specification<T> {
             return SpecificationViolation.none();
         }
 
-        // If not satisfied, at least one of the sub-specifications must be violated.
-        // We prioritize the left violation if it exists.
+        // AND failed - return the FIRST failing specification's violation
+        // We trust the specification contract: if isSatisfiedBy is false, violation is valid
         if (!left.isSatisfiedBy(candidate)) {
-            SpecificationViolation violation = left.violation(candidate);
-            if (violation.isPresent()) {
-                return violation;
-            }
-        }
-
-        // If left was satisfied or didn't provide a violation, check the right.
-        if (!right.isSatisfiedBy(candidate)) {
-            SpecificationViolation violation = right.violation(candidate);
-            if (violation.isPresent()) {
-                return violation;
-            }
+            return left.violation(candidate);
         }
         
-        // Fallback for unexpected consistency issues between isSatisfiedBy and violation
-        return new SpecificationViolation(
-                "SPEC_AND_FAILED",
-                "Both parts of AND failed to provide a violation code.");
+        // Left passed, so right must have failed
+        return right.violation(candidate);
     }
 }

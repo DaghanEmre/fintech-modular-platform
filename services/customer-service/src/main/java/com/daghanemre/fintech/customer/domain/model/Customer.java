@@ -82,13 +82,21 @@ public class Customer {
     public void activate() {
         ensure(CustomerSpecifications.canBeActivated());
 
+        if (this.status == CustomerStatus.ACTIVE) {
+            return; // idempotent
+        }
+
         this.status = CustomerStatus.ACTIVE;
         touch();
     }
 
     public void suspend(StateChangeReason reason) {
         ensure(CustomerSpecifications.canBeSuspended());
-        Objects.requireNonNull(reason, "reason must not be null");
+        Objects.requireNonNull(reason, "Reason for suspension is mandatory");
+
+        if (this.status == CustomerStatus.SUSPENDED) {
+            return; // idempotent
+        }
 
         this.status = CustomerStatus.SUSPENDED;
         touch();
@@ -96,7 +104,7 @@ public class Customer {
 
     public void block(StateChangeReason reason) {
         ensure(CustomerSpecifications.canBeBlocked());
-        Objects.requireNonNull(reason, "reason must not be null");
+        Objects.requireNonNull(reason, "Reason for blocking is mandatory");
 
         if (this.status == CustomerStatus.BLOCKED) {
             return; // idempotent
@@ -107,7 +115,7 @@ public class Customer {
     }
 
     public void markInactive() {
-        ensure(CustomerSpecifications.canBeBlocked()); // Using same rules as blocking for now
+        ensure(CustomerSpecifications.canBeMarkedInactive());
 
         if (this.status == CustomerStatus.INACTIVE) {
             return; // idempotent

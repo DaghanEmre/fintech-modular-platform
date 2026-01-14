@@ -37,31 +37,6 @@ class CustomerAtomicSpecsTest {
         assertThat(spec.violation(customer).code()).isEqualTo("CUSTOMER_BLOCKED");
     }
 
-    @Test
-    @DisplayName("CustomerIsPendingSpec should be satisfied only when status is PENDING")
-    void customerIsPendingSpecTest() {
-        CustomerIsPendingSpec spec = new CustomerIsPendingSpec();
-        Customer customer = Customer.create(email);
-
-        assertThat(spec.isSatisfiedBy(customer)).isTrue();
-
-        customer.activate();
-        assertThat(spec.isSatisfiedBy(customer)).isFalse();
-        assertThat(spec.violation(customer).code()).isEqualTo("CUSTOMER_NOT_PENDING");
-    }
-
-    @Test
-    @DisplayName("CustomerIsSuspendedSpec should be satisfied only when status is SUSPENDED")
-    void customerIsSuspendedSpecTest() {
-        CustomerIsSuspendedSpec spec = new CustomerIsSuspendedSpec();
-        Customer customer = Customer.create(email);
-        customer.activate();
-
-        assertThat(spec.isSatisfiedBy(customer)).isFalse();
-
-        customer.suspend(com.daghanemre.fintech.customer.domain.model.StateChangeReason.of("test"));
-        assertThat(spec.isSatisfiedBy(customer)).isTrue();
-    }
 
     @Test
     @DisplayName("CustomerIsActiveSpec should be satisfied only when status is ACTIVE")

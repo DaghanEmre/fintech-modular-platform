@@ -27,6 +27,10 @@ public record CustomerId(UUID value) {
         if (value == null) {
             throw new IllegalArgumentException("CustomerId cannot be null");
         }
+        
+        if (value.getMostSignificantBits() == 0 && value.getLeastSignificantBits() == 0) {
+            throw new IllegalArgumentException("CustomerId cannot be Nil UUID (all zeros)");
+        }
     }
 
     /**
@@ -65,11 +69,14 @@ public record CustomerId(UUID value) {
             throw new IllegalArgumentException("Invalid CustomerId format: " + value);
         }
 
+        UUID uuid;
         try {
-            return new CustomerId(UUID.fromString(trimmedValue));
+            uuid = UUID.fromString(trimmedValue);
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("Invalid CustomerId format: " + value, ex);
         }
+
+        return new CustomerId(uuid);
     }
 
     /**

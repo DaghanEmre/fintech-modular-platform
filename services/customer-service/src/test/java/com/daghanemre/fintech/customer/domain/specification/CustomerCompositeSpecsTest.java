@@ -15,7 +15,7 @@ class CustomerCompositeSpecsTest {
     private final StateChangeReason reason = StateChangeReason.of("test");
 
     @Test
-    @DisplayName("canBeActivated should be satisfied for PENDING and SUSPENDED customers")
+    @DisplayName("canBeActivated should be satisfied for PENDING, SUSPENDED and already ACTIVE customers")
     void canBeActivatedTest() {
         Specification<Customer> spec = CustomerSpecifications.canBeActivated();
 
@@ -24,7 +24,7 @@ class CustomerCompositeSpecsTest {
 
         Customer active = Customer.create(email);
         active.activate();
-        assertThat(spec.isSatisfiedBy(active)).isFalse();
+        assertThat(spec.isSatisfiedBy(active)).isTrue(); // Now true for idempotency
 
         Customer suspended = Customer.create(email);
         suspended.activate();
@@ -43,20 +43,25 @@ class CustomerCompositeSpecsTest {
         assertThat(spec.violation(deleted).code()).isEqualTo("CUSTOMER_DELETED");
 
         Customer blocked = Customer.create(email);
+        blocked.activate();
         blocked.block(reason);
         assertThat(spec.isSatisfiedBy(blocked)).isFalse();
-        // Since it's NotDeleted.and(NotBlocked), and NotDeleted is checked first.
-        // If we move NotBlocked first, it would return CUSTOMER_BLOCKED.
+        assertThat(spec.violation(blocked).code()).isEqualTo("CUSTOMER_BLOCKED");
     }
 
     @Test
-    @DisplayName("canBeSuspended should be satisfied only for ACTIVE customers")
+    @DisplayName("canBeSuspended should be satisfied for ACTIVE or already SUSPENDED customers")
     void canBeSuspendedTest() {
         Specification<Customer> spec = CustomerSpecifications.canBeSuspended();
 
         Customer active = Customer.create(email);
         active.activate();
         assertThat(spec.isSatisfiedBy(active)).isTrue();
+
+        Customer suspended = Customer.create(email);
+        suspended.activate();
+        suspended.suspend(reason);
+        assertThat(spec.isSatisfiedBy(suspended)).isTrue(); // Now true for idempotency
 
         Customer pending = Customer.create(email);
         assertThat(spec.isSatisfiedBy(pending)).isFalse();

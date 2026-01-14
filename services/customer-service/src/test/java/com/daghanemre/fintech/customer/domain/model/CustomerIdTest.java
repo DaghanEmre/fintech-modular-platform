@@ -218,6 +218,18 @@ class CustomerIdTest {
 
             assertTrue(ex.getMessage().contains("Invalid CustomerId format"));
         }
+
+        @Test
+        @DisplayName("from - should reject Nil UUID")
+        void from_ShouldRejectNilUuid() {
+            String nilUuid = "00000000-0000-0000-0000-000000000000";
+
+            IllegalArgumentException ex = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> CustomerId.from(nilUuid));
+
+            assertTrue(ex.getMessage().contains("cannot be Nil UUID"));
+        }
     }
 
     @Nested

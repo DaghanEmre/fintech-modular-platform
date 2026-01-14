@@ -54,6 +54,19 @@ class CustomerTest {
     }
 
     @Test
+    void suspend_ShouldBeIdempotent_WhenAlreadySuspended() {
+        Customer customer = createActiveCustomer();
+        customer.suspend(StateChangeReason.of("Initial reason"));
+        LocalDateTime firstUpdate = customer.getUpdatedAt();
+
+        // Should return silently
+        customer.suspend(StateChangeReason.of("Different reason"));
+
+        assertEquals(CustomerStatus.SUSPENDED, customer.getStatus());
+        assertEquals(firstUpdate, customer.getUpdatedAt());
+    }
+
+    @Test
     void suspend_ShouldThrowException_WhenStatusIsNotActive() {
         Customer customer = Customer.create(Email.of("test@example.com"));
         // status = PENDING
@@ -130,11 +143,15 @@ class CustomerTest {
     }
 
     @Test
-    void activate_ShouldThrowException_WhenAlreadyActive() {
+    void activate_ShouldBeIdempotent_WhenAlreadyActive() {
         Customer customer = createActiveCustomer();
+        LocalDateTime firstUpdate = customer.getUpdatedAt();
 
-        assertThatThrownBy(customer::activate)
-                .isInstanceOf(SpecificationException.class);
+        // Should return silently without updating timestamps or throwing
+        customer.activate();
+
+        assertEquals(CustomerStatus.ACTIVE, customer.getStatus());
+        assertEquals(firstUpdate, customer.getUpdatedAt());
     }
 
     @Test
