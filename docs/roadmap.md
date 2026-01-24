@@ -230,20 +230,30 @@ The roadmap will evolve as the **Java ecosystem and financial systems evolve**.
 
 ## 🏗️ Domain Architecture Roadmap
 
-### Completed
-- [x] Specification Pattern adoption (`customer-service`)
-- [x] Domain violation observability via metrics
+### Completed Milestones
+- [x] **Hexagonal Architecture Foundation** (ADR-0001)
+- [x] **DDD Aggregate Structure** (`customer-service`)
+- [x] **Value Object Hardening** (Email regex, CustomerId Nil UUID protection)
+- [x] **Specification Pattern Adoption** (ADR-0004 - Refined composite & semantic specs)
+- [x] **Enum Ownership Strategy** (ADR-0006 - 3-Tier Strategy, String serialization)
+- [x] **Domain Audit Concerns** (UUID/Timestamps managed within Domain)
+- [x] **Architecture Contract Enforcement** (ArchUnit for Specifications)
+- [x] **Domain Observability** (MeterRegistry metrics for violations)
 
-### Planned
-- [ ] Apply Specification Pattern to:
-  - [ ] Payment Service
-  - [ ] Account Service
-  - [ ] Limits Service
-- [ ] Standardize violation codes across services
-- [ ] Auto-generate OpenAPI error schemas from violation codes
-- [ ] Correlate domain violations with traces (TraceId propagation)
-
----
+### Planned & Future Exploration
+- [ ] **Standardization of Violation Codes** (Cross-service registry in `common`)
+- [ ] **Idempotency Strategy (ADR-0008)**
+    - [ ] Establish platform-level idempotency key handling
+    - [ ] Handle concurrent requests at infrastructure/adapter layer
+- [ ] **Cross-Service Bounded Context Interaction**
+    - [ ] Apply 3-Tier Enum Strategy during `payment-service` integration
+    - [ ] Standardize event payloads (String serialization vs shared schemas)
+- [ ] **Enhanced Traceability**
+    - [ ] Correlate domain violations with traces (TraceId propagation into `SpecificationException`)
+- [ ] **Auto-generate OpenAPI Documentation**
+    - [ ] Map domain violation codes to dynamic OpenAPI error schemas
+- [ ] **Modern Java Features**
+    - [ ] Experiment with Java 21 Virtual Threads in high-throughput use cases
 
 ---
 
@@ -251,4 +261,4 @@ The roadmap will evolve as the **Java ecosystem and financial systems evolve**.
 
 This roadmap represents a **long-term engineering journey**, not a checklist.
 
-Refactoring, redesign, and learning from mistakes are considered **success**, not failure.# Roadmap
+Refactoring, redesign, and learning from mistakes are considered **success**, not failure.
