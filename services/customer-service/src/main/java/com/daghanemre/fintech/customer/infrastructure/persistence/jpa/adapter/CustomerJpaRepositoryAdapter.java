@@ -6,7 +6,9 @@ import com.daghanemre.fintech.customer.infrastructure.persistence.jpa.entity.Cus
 import com.daghanemre.fintech.customer.infrastructure.persistence.jpa.repository.SpringDataCustomerRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * JPA adapter implementing the CustomerRepository port.
@@ -38,12 +40,12 @@ public class CustomerJpaRepositoryAdapter implements CustomerRepository {
     @Override
     public void save(Customer customer) {
         CustomerJpaEntity entity = toEntity(customer);
-        jpaRepository.save(entity);
+        jpaRepository.save((CustomerJpaEntity) Objects.requireNonNull(entity));
     }
 
     @Override
     public Optional<Customer> findById(CustomerId customerId) {
-        return jpaRepository.findById(customerId.value())
+        return jpaRepository.findById((UUID) Objects.requireNonNull(customerId.value()))
                 .map(this::toDomain);
     }
 

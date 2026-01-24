@@ -30,7 +30,6 @@ public final class CustomerCanBeSuspendedSpec implements Specification<Customer>
     // Delegate to reusable atomic specifications
     private final Specification<Customer> notDeleted = new CustomerNotDeletedSpec();
     private final Specification<Customer> notBlocked = new CustomerNotBlockedSpec();
-    private final Specification<Customer> isActive = new CustomerIsActiveSpec();
 
     @Override
     public boolean isSatisfiedBy(Customer customer) {

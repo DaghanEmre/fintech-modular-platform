@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
+import java.util.Objects;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -54,7 +55,7 @@ public class GlobalExceptionHandler {
         public ResponseEntity<ErrorResponse> handleSpecificationException(SpecificationException ex,
                         HttpServletRequest request) {
                 SpecificationViolation violation = ex.getViolation();
-                HttpStatusCode status = SpecificationHttpStatusMapper.resolve(violation.code());
+                HttpStatus status = SpecificationHttpStatusMapper.resolve(violation.code());
 
                 log.warn("Domain specification violation [{}]: {}", violation.code(), violation.message());
 
@@ -68,7 +69,7 @@ public class GlobalExceptionHandler {
                                 .increment();
 
                 return ResponseEntity
-                                .status(status)
+                                .status((HttpStatusCode) Objects.requireNonNull(status))
                                 .body(new ErrorResponse(violation.code(), violation.message()));
         }
 
