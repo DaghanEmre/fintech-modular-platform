@@ -1,5 +1,6 @@
 package com.daghanemre.fintech.customer.infrastructure.persistence.jpa.entity;
 
+import com.daghanemre.fintech.customer.domain.model.CustomerStatus;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -39,7 +40,7 @@ public class CustomerJpaEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private CustomerStatusJpa status;
+    private CustomerStatus status;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -62,7 +63,7 @@ public class CustomerJpaEntity {
     public CustomerJpaEntity(
             UUID id,
             String email,
-            CustomerStatusJpa status,
+            CustomerStatus status,
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
             LocalDateTime deletedAt) {
@@ -83,7 +84,7 @@ public class CustomerJpaEntity {
         return email;
     }
 
-    public CustomerStatusJpa getStatus() {
+    public CustomerStatus getStatus() {
         return status;
     }
 
@@ -104,7 +105,7 @@ public class CustomerJpaEntity {
         this.email = email;
     }
 
-    public void setStatus(CustomerStatusJpa status) {
+    public void setStatus(CustomerStatus status) {
         this.status = status;
     }
 

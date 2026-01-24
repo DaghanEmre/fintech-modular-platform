@@ -3,7 +3,6 @@ package com.daghanemre.fintech.customer.infrastructure.persistence.jpa.adapter;
 import com.daghanemre.fintech.customer.domain.model.*;
 import com.daghanemre.fintech.customer.domain.port.CustomerRepository;
 import com.daghanemre.fintech.customer.infrastructure.persistence.jpa.entity.CustomerJpaEntity;
-import com.daghanemre.fintech.customer.infrastructure.persistence.jpa.entity.CustomerStatusJpa;
 import com.daghanemre.fintech.customer.infrastructure.persistence.jpa.repository.SpringDataCustomerRepository;
 import org.springframework.stereotype.Repository;
 
@@ -66,7 +65,7 @@ public class CustomerJpaRepositoryAdapter implements CustomerRepository {
         return new CustomerJpaEntity(
                 customer.getId().value(),
                 customer.getEmail().value(),
-                CustomerStatusJpa.valueOf(customer.getStatus().name()),
+                customer.getStatus(),
                 customer.getCreatedAt(),
                 customer.getUpdatedAt(),
                 customer.getDeletedAt());
@@ -82,7 +81,7 @@ public class CustomerJpaRepositoryAdapter implements CustomerRepository {
         return Customer.reconstitute(
                 CustomerId.of(entity.getId()),
                 Email.of(entity.getEmail()),
-                CustomerStatus.valueOf(entity.getStatus().name()),
+                entity.getStatus(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
                 entity.getDeletedAt());

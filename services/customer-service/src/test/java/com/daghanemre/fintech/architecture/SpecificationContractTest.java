@@ -1,7 +1,6 @@
 package com.daghanemre.fintech.architecture;
 
 import com.daghanemre.fintech.common.specification.Specification;
-import com.daghanemre.fintech.common.specification.SpecificationViolation;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.domain.JavaModifier;
