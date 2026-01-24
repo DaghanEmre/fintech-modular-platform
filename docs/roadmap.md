@@ -240,20 +240,35 @@ The roadmap will evolve as the **Java ecosystem and financial systems evolve**.
 - [x] **Architecture Contract Enforcement** (ArchUnit for Specifications)
 - [x] **Domain Observability** (MeterRegistry metrics for violations)
 
-### Planned & Future Exploration
-- [ ] **Standardization of Violation Codes** (Cross-service registry in `common`)
-- [ ] **Idempotency Strategy (ADR-0008)**
-    - [ ] Establish platform-level idempotency key handling
-    - [ ] Handle concurrent requests at infrastructure/adapter layer
-- [ ] **Cross-Service Bounded Context Interaction**
-    - [ ] Apply 3-Tier Enum Strategy during `payment-service` integration
-    - [ ] Standardize event payloads (String serialization vs shared schemas)
-- [ ] **Enhanced Traceability**
-    - [ ] Correlate domain violations with traces (TraceId propagation into `SpecificationException`)
-- [ ] **Auto-generate OpenAPI Documentation**
-    - [ ] Map domain violation codes to dynamic OpenAPI error schemas
-- [ ] **Modern Java Features**
-    - [ ] Experiment with Java 21 Virtual Threads in high-throughput use cases
+### 🚀 Planned - Sprint 1: Architecture Hardening & Observability
+- [ ] **ArchUnit Guardrails** (customer-service scope)
+    - Enforce domain purity, hexagonal boundaries, and tier-1 enum isolation.
+- [ ] **OpenAPI Contract Hardening** (Service-local)
+    - Document structured error schemas and domain violation codes.
+- [ ] **Distributed Tracing Foundations**
+    - Implement TraceId/MDC propagation (Logs, Responses, Error Context).
+    - Fix metric cardinality by using `hasTrace=true` tag.
+
+### 🚀 Planned - Sprint 2: Domain Completeness (Flow-Based)
+- [ ] **Suspend/Reactivate Use Cases**
+    - Implement reversible business flows (ACTIVE ↔ SUSPENDED).
+    - Validate semantic specifications for state transitions.
+- [ ] **Integration Test Hardening**
+    - Ensure 100% coverage for state machine transitions.
+
+### 🚀 Planned - Sprint 3: Terminal States & Cleanup
+- [ ] **Block/Delete Use Cases**
+    - Implement terminal states (BLOCKED, DELETED).
+- [ ] **Structured Logging & Lean Production Ready**
+    - Refine logging patterns with TraceId and relevant domain keys.
+
+### 🚀 Planned - Sprint 4: Cross-Service Preparation (Design Phase)
+- [ ] **ADR-0008: Domain Events Strategy** (Draft)
+    - Define naming conventions, versioning, and serialization strategy.
+- [ ] **fintech-common Expansion**
+    - Introduce Tier 2 enums (`Currency`, `CountryCode`) when needed by `payment-service`.
+- [ ] **Idempotency Strategy** (Design)
+    - Establish platform-level handling for concurrent requests and idempotency keys.
 
 ---
 
