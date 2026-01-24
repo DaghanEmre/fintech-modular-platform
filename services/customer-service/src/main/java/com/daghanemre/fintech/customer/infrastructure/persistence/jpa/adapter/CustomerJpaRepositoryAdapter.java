@@ -40,12 +40,18 @@ public class CustomerJpaRepositoryAdapter implements CustomerRepository {
     @Override
     public void save(Customer customer) {
         CustomerJpaEntity entity = toEntity(customer);
-        jpaRepository.save((CustomerJpaEntity) Objects.requireNonNull(entity));
+        if (entity != null) {
+            jpaRepository.save(entity);
+        }
     }
 
     @Override
     public Optional<Customer> findById(CustomerId customerId) {
-        return jpaRepository.findById((UUID) Objects.requireNonNull(customerId.value()))
+        UUID id = customerId.value();
+        if (id == null) {
+            return Optional.empty();
+        }
+        return jpaRepository.findById(id)
                 .map(this::toDomain);
     }
 

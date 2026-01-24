@@ -68,8 +68,11 @@ public class GlobalExceptionHandler {
                                                 "operation", operation))
                                 .increment();
 
+                // Ensure status is never null for the response entity
+                HttpStatusCode responseStatus = (status != null) ? status : HttpStatus.INTERNAL_SERVER_ERROR;
+
                 return ResponseEntity
-                                .status((HttpStatusCode) Objects.requireNonNull(status))
+                                .status(responseStatus)
                                 .body(new ErrorResponse(violation.code(), violation.message()));
         }
 
