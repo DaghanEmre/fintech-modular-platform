@@ -6,7 +6,6 @@ import com.daghanemre.fintech.customer.infrastructure.persistence.jpa.entity.Cus
 import com.daghanemre.fintech.customer.infrastructure.persistence.jpa.repository.SpringDataCustomerRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
