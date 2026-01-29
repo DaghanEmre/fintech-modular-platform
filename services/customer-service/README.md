@@ -146,12 +146,24 @@ This service uses **Testcontainers** for integration testing with real PostgreSQ
 
 For Docker setup details, see [Docker README](../../infrastructure/docker/README.md).
 
+## Architecture Testing
+
+This project uses **ArchUnit** to enforce architectural boundaries, hexagonal isolation, and DDD principles at build time.
+
+Run architecture tests:
+```bash
+mvn test -Dtest=CustomerServiceArchitectureTest
+```
+
+See **[ADR-0007](../../docs/adr/ADR-0007-architecture-guardrails.md)** for details on architecture guardrails and rule sets.
+
 ## Design Decisions
 
 Refer to Architecture Decision Records:
-- [ADR-0001: Domain Model Design](../../docs/adr/0001-domain-model-design.md)
-- [ADR-0002: Infrastructure Layer Design](../../docs/adr/0002-infrastructure-layer-design.md)
+- [ADR-0001: Hexagonal Architecture](../../docs/adr/0001-use-hexagonal-architecture.md)
+- [ADR-0002: Customer Domain Model Design](../../docs/adr/0002-customer-domain-model-design.md)
 - [ADR-0003: Application Layer Design](../../docs/adr/0003-application-layer-design.md)
+- [ADR-0007: Architecture Guardrails](../../docs/adr/ADR-0007-architecture-guardrails.md)
 
 ## Key Design Choices
 
