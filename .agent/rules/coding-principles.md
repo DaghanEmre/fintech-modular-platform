@@ -6,7 +6,7 @@ description: Apply when writing, reviewing, or refactoring code, domain models, 
 Coding Principles:
 
 - No anemic domain (behavior lives in the domain)
-- No primitive obsession (use value objects)
+- Avoid primitive obsession — Use value objects for domain-significant concepts (Email, CustomerId, etc.)
 - No infrastructure leakage into domain
 - Domain must be framework-agnostic
 - Aggregate invariants enforced inside the aggregate
@@ -16,7 +16,7 @@ Coding Principles:
 
 Specification Pattern Usage:
 - Do NOT implement business rules with nested if/else statements.
-- Each business rule MUST be modeled as a Specification<T>.
+- Domain-level eligibility rules and reusable business invariants SHOULD be modeled as a Specification<T>.
 - Specifications MUST be pure, stateless, and side-effect free.
 - Composite rules MUST express domain semantics clearly.
 - Avoid generic OR-composition when domain semantics require explicit meaning.

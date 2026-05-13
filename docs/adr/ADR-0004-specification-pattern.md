@@ -23,7 +23,7 @@ As the platform evolves toward multiple microservices with complex domain rules,
 We adopt the Specification Pattern (as described by Eric Evans and Martin Fowler) as the standard mechanism for expressing and enforcing domain business rules.
 
 Key decisions:
-- **Domain rules are modeled as Specifications**: Each rule is a standalone, composable object.
+- **Domain-level eligibility rules are modeled as Specifications**: Eligibility rules and reusable business invariants are standalone, composable objects.
 - **Specifications are pure, side-effect free, and testable in isolation**.
 - **Composite specifications are built using logical operators**: AND, OR, NOT composition supported natively. Complex rules are expressed declaratively.
 - **Rule violations are represented explicitly**: Violations are modeled as value objects (`SpecificationViolation`). Exceptions are used only as a transport mechanism (`SpecificationException`).
