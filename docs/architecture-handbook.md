@@ -495,10 +495,9 @@ public class CustomerNotDeletedSpec implements Specification<Customer> {
     }
 }
 
-// Naming convention examples:
-// Atomic Positive: {Entity}Is{State}Spec
-// Atomic Negative: {Entity}Not{ForbiddenState}Spec
-// Semantic: {Entity}Can{BusinessOperation}Spec
+// Naming convention:
+// Atomic: {Entity}Is/Not{Rule}Spec (e.g. CustomerIsActiveSpec)
+// Semantic: {Entity}Can{Action}Spec (e.g. CustomerCanBeActivatedSpec)
 ```
 
 ### Semantic Specifications

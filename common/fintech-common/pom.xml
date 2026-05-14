@@ -1,47 +1,61 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.daghanemre.fintech</groupId>
-    <artifactId>fintech-common</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-    <name>fintech-common</name>
-    <description>Shared patterns and utilities for Fintech Modular Platform</description>
 
-    <properties>
-        <java.version>17</java.version>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
+    <!--
+    Parent: Platform root (Dependency Governor)
+    fintech-common is intentionally a PURE JAVA module:
+      - Zero Spring dependency at runtime
+      - Zero framework coupling
+      - Domain patterns, Specification, shared value objects only
+    Java 21 and compiler config flow from root.
+    Test dependency versions flow from spring-boot-dependencies BOM in root.
+    -->
+    <parent>
+        <groupId>com.daghanemre.fintech</groupId>
+        <artifactId>fintech-modular-platform</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>fintech-common</artifactId>
+    <name>fintech-common</name>
+    <description>
+        Shared domain patterns and utilities — Pure Java, no framework dependency (ADR-0008).
+    </description>
 
     <dependencies>
+
+        <!-- ── Testing ───────────────────────────────────────────────── -->
+        <!-- Versions governed by spring-boot-dependencies BOM in root   -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.10.1</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.24.2</version>
             <scope>test</scope>
         </dependency>
+
     </dependencies>
 
     <build>
         <plugins>
+            <!-- Versions inherited from root pluginManagement; no overrides needed -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.2</version>
             </plugin>
         </plugins>
     </build>
+
 </project>

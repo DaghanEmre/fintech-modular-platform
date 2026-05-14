@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.daghanemre.fintech</groupId>
@@ -10,17 +11,161 @@
     <packaging>pom</packaging>
 
     <name>Fintech Modular Platform</name>
-    <description>Root aggregator for Fintech Modular Platform</description>
+    <description>Platform root — Dependency Governor for all modules (ADR-0008)</description>
 
     <modules>
         <module>common/fintech-common</module>
         <module>services/customer-service</module>
     </modules>
 
+    <!--
+    ╔══════════════════════════════════════════════════════════════════╗
+    ║  PLATFORM VERSION CATALOG                                        ║
+    ║  Single source of truth. Change versions HERE ONLY.             ║
+    ║  Services declare deps without version — flows from BOM.        ║
+    ║  See: ADR-0008 — Spring Boot Upgrade & Dependency Governance    ║
+    ╚══════════════════════════════════════════════════════════════════╝
+    -->
     <properties>
-        <java.version>17</java.version>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <!-- Java -->
+        <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Platform Framework -->
+        <spring-boot.version>3.5.14</spring-boot.version>
+
+        <!-- Mapping & Code Generation -->
+        <mapstruct.version>1.5.5.Final</mapstruct.version>
+        <lombok.version>1.18.38</lombok.version>
+        <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
+
+        <!-- Testing -->
+        <testcontainers.version>1.21.0</testcontainers.version>
+        <archunit.version>1.3.0</archunit.version>
+
+        <!-- Build Plugins -->
+        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+        <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
+        <maven-failsafe-plugin.version>3.2.5</maven-failsafe-plugin.version>
     </properties>
+
+    <!--
+    ╔══════════════════════════════════════════════════════════════════╗
+    ║  PLATFORM BOM                                                    ║
+    ║  Governs ALL dependency versions across ALL modules.            ║
+    ║  Rationale: framework parent inheritance ≠ platform governance. ║
+    ║  See: ADR-0008 §"Why BOM Instead of Parent Inheritance?"        ║
+    ╚══════════════════════════════════════════════════════════════════╝
+    -->
+    <dependencyManagement>
+        <dependencies>
+
+            <!-- Spring Boot BOM — governs entire Spring + Jakarta ecosystem -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Testcontainers BOM — governs all testcontainers modules -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- MapStruct (not covered by Spring BOM) -->
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct-processor</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+
+            <!-- ArchUnit (not covered by Spring BOM) -->
+            <dependency>
+                <groupId>com.tngtech.archunit</groupId>
+                <artifactId>archunit-junit5</artifactId>
+                <version>${archunit.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- Internal modules — version aligned with platform -->
+            <dependency>
+                <groupId>com.daghanemre.fintech</groupId>
+                <artifactId>fintech-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+        </dependencies>
+    </dependencyManagement>
+
+    <!--
+    ╔══════════════════════════════════════════════════════════════════╗
+    ║  PLATFORM PLUGIN MANAGEMENT                                      ║
+    ║  Plugin versions centralized — services inherit, not redeclare. ║
+    ╚══════════════════════════════════════════════════════════════════╝
+    -->
+    <build>
+        <pluginManagement>
+            <plugins>
+
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven-compiler-plugin.version}</version>
+                    <configuration>
+                        <!--
+                        Use 'release' flag instead of source/target pair:
+                        Enforces target JDK API consistency, prevents accidental
+                        use of newer JDK APIs, and produces cleaner bytecode for Java 21.
+                        -->
+                        <release>${java.version}</release>
+                        <!--
+                        parameters=true: Required for Spring MVC parameter binding,
+                        reflection-based constructor resolution, and JPA proxy scenarios.
+                        Without this, @RequestParam name inference and some DI features break.
+                        -->
+                        <parameters>true</parameters>
+                    </configuration>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven-surefire-plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>${maven-failsafe-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>integration-test</goal>
+                                <goal>verify</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+            </plugins>
+        </pluginManagement>
+    </build>
+
 </project>
