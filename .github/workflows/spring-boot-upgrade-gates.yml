@@ -90,10 +90,16 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
+      - name: Install upstream dependencies (fintech-common)
+        # Required on fresh CI runners: fintech-common must be in local repo before customer-service tests.
+        # We do NOT use -am here: -am adds fintech-common to the reactor which causes
+        # Maven to attempt running -Dtest patterns in ALL reactor modules, failing on fintech-common.
+        run: mvn install -pl common/fintech-common -DskipTests -B
+
       - name: Run ArchUnit tests
         # HARD gate — no continue-on-error. Architecture integrity is a first-class invariant.
-        # -am (also-make): builds fintech-common first on the fresh CI runner before testing customer-service.
-        run: mvn test -pl services/customer-service -am -Dtest="*ArchTest,*ArchitectureTest" -DfailIfNoTests=false -B
+        # Runs only on customer-service since fintech-common is already installed above.
+        run: mvn test -pl services/customer-service -Dtest="*ArchTest,*ArchitectureTest" -DfailIfNoTests=false -B
 
   # ─────────────────────────────────────────────────────────────
   # Gate 4 — Behavioral (Spring Boot Jackson + Domain)
@@ -114,9 +120,12 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
+      - name: Install upstream dependencies (fintech-common)
+        # Same rationale as Gate 3: prevents -Dtest pattern from running in fintech-common reactor.
+        run: mvn install -pl common/fintech-common -DskipTests -B
+
       - name: Run serialization and domain unit tests
-        # -am: ensures fintech-common is compiled first on the fresh CI runner.
-        run: mvn test -pl services/customer-service -am -Dtest="CustomerStatusSerializationTest,CustomerStatusTest" -B
+        run: mvn test -pl services/customer-service -Dtest="CustomerStatusSerializationTest,CustomerStatusTest" -B
 
   # ─────────────────────────────────────────────────────────────
   # Gate 5 — Integration (Testcontainers + PostgreSQL)
