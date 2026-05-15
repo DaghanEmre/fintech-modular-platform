@@ -191,6 +191,21 @@ jobs:
       - name: Package application (skip tests — already verified in Gate 5)
         run: mvn clean package -DskipTests -pl common/fintech-common,services/customer-service -B
 
+      - name: Start Postgres container for smoke test
+        run: |
+          docker run --name customer_db -e POSTGRES_DB=customer_db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:15
+          # Polling for readiness is safer than fixed sleep
+          for i in {1..20}; do
+            if docker exec customer_db pg_isready -U postgres -d customer_db; then
+              echo "✅ Postgres is ready"
+              exit 0
+            fi
+            echo "Attempt $i/20 — waiting for postgres..."
+            sleep 2
+          done
+          echo "❌ Postgres failed to start"
+          exit 1
+
       - name: Start customer-service in background
         run: |
           cd services/customer-service
@@ -240,7 +255,10 @@ jobs:
 
       - name: Stop application
         if: always()
-        run: kill ${{ env.APP_PID }} || true
+        run: |
+          kill ${{ env.APP_PID }} || true
+          docker stop customer_db || true
+          docker rm customer_db || true
 
   # ─────────────────────────────────────────────────────────────
   # Summary — All Gates Must Pass
