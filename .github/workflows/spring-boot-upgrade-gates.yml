@@ -90,15 +90,18 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: Install upstream dependencies (fintech-common)
-        # Required on fresh CI runners: fintech-common must be in local repo before customer-service tests.
-        # We do NOT use -am here: -am adds fintech-common to the reactor which causes
-        # Maven to attempt running -Dtest patterns in ALL reactor modules, failing on fintech-common.
-        run: mvn install -pl common/fintech-common -DskipTests -B
+      - name: Install root POM and upstream dependencies
+        # Fresh CI runner dependency chain: customer-service → fintech-common → root POM.
+        # Maven resolves the parent chain before any module compiles.
+        # -N (non-recursive): installs ONLY the root POM artifact, no submodules.
+        # This makes com.daghanemre.fintech:fintech-modular-platform:pom available in local repo.
+        run: |
+          mvn install -N -DskipTests -B
+          mvn install -pl common/fintech-common -DskipTests -B
 
       - name: Run ArchUnit tests
-        # HARD gate — no continue-on-error. Architecture integrity is a first-class invariant.
-        # Runs only on customer-service since fintech-common is already installed above.
+        # HARD gate — architecture is a first-class invariant.
+        # Single-module reactor (-pl only, no -am) ensures -Dtest pattern runs only here.
         run: mvn test -pl services/customer-service -Dtest="*ArchTest,*ArchitectureTest" -DfailIfNoTests=false -B
 
   # ─────────────────────────────────────────────────────────────
@@ -120,9 +123,11 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: Install upstream dependencies (fintech-common)
-        # Same rationale as Gate 3: prevents -Dtest pattern from running in fintech-common reactor.
-        run: mvn install -pl common/fintech-common -DskipTests -B
+      - name: Install root POM and upstream dependencies
+        # Same dependency chain as Gate 3: root POM → fintech-common → customer-service.
+        run: |
+          mvn install -N -DskipTests -B
+          mvn install -pl common/fintech-common -DskipTests -B
 
       - name: Run serialization and domain unit tests
         run: mvn test -pl services/customer-service -Dtest="CustomerStatusSerializationTest,CustomerStatusTest" -B
