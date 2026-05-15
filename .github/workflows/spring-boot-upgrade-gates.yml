@@ -1,23 +1,26 @@
-name: Spring Boot Upgrade Gates (ADR-0008)
+name: Spring Boot 3.5 Upgrade Validation Gates (ADR-0008)
 
 on:
   push:
-    branches:
-      - feature/spring-boot-3.5-upgrade
-      - main
+    branches: [ main, develop, feature/spring-boot-3.5-upgrade ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
 
 env:
   JAVA_VERSION: '21'
-  JAVA_DISTRIBUTION: 'microsoft'
+  JAVA_DISTRIBUTION: 'temurin'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pipeline: 6 gates in sequential order, matching ADR-0008 validation pipeline.
+# All gates are HARD: no continue-on-error. A failing gate stops the pipeline.
+# Soft/advisory behavior is explicitly documented — never implicit.
+# ─────────────────────────────────────────────────────────────────────────────
 
 jobs:
 
   # ─────────────────────────────────────────────────────────────
-  # Gate 1: Dependency Resolution
-  # Validates: No old Spring 3.2.x artifacts; no transitive conflicts
+  # Gate 1 — Dependency Resolution
+  # Validates: No old Spring 3.2.x; dependency convergence enforced.
   # ─────────────────────────────────────────────────────────────
   gate-1-dependency-resolution:
     name: "Gate 1 — Dependency Resolution"
@@ -32,21 +35,22 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: Verify no Spring 3.2.x artifacts remain
-        run: mvn dependency:tree -Dincludes=org.springframework | grep -v "3.2." && echo "No 3.2.x artifacts found ✅"
+      - name: Check Spring Boot version in dependency tree
+        run: mvn dependency:tree -Dincludes=org.springframework.boot -B
 
-      - name: Full dependency tree (artifact)
+      - name: Run Maven Enforcer (Java baseline + dependency convergence + banned deps)
+        run: mvn enforcer:enforce -B
+
+      - name: Upload dependency tree as artifact
         run: mvn dependency:tree > dependency-tree.txt
-
-      - name: Upload dependency tree
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: dependency-tree
           path: dependency-tree.txt
 
   # ─────────────────────────────────────────────────────────────
-  # Gate 2: Compile
-  # Validates: All modules compile under Java 21 with --release 21
+  # Gate 2 — Compile
+  # Validates: All modules compile under Java 21 with --release 21.
   # ─────────────────────────────────────────────────────────────
   gate-2-compile:
     name: "Gate 2 — Compile"
@@ -63,11 +67,12 @@ jobs:
           cache: maven
 
       - name: Compile all modules
-        run: mvn clean compile -DskipTests=true
+        run: mvn clean compile -DskipTests=true -B -V
 
   # ─────────────────────────────────────────────────────────────
-  # Gate 3: Architecture Integrity (ArchUnit)
-  # Validates: Hexagonal boundaries, domain purity, Spec pattern
+  # Gate 3 — Architecture Integrity (ArchUnit)
+  # HARD gate: architectural violations fail the build.
+  # Validates: Hexagonal boundaries, domain purity, Spec pattern.
   # ─────────────────────────────────────────────────────────────
   gate-3-architecture-integrity:
     name: "Gate 3 — Architecture Integrity (ArchUnit)"
@@ -84,14 +89,16 @@ jobs:
           cache: maven
 
       - name: Run ArchUnit tests
-        run: mvn test -pl services/customer-service -Dtest="*ArchTest,*ArchitectureTest" -DfailIfNoTests=false
+        # HARD gate — no continue-on-error. Architecture integrity is a first-class invariant.
+        run: mvn test -pl services/customer-service -Dtest="*ArchTest,*ArchitectureTest" -DfailIfNoTests=false -B
 
   # ─────────────────────────────────────────────────────────────
-  # Gate 4: Behavioral (Domain + Jackson)
-  # Validates: Enum serialization stability, safeParse contract
+  # Gate 4 — Behavioral (Spring Boot Jackson + Domain)
+  # Validates: Spring Boot runtime serialization contract via @JsonTest.
+  # Validates: Domain invariants via unit tests.
   # ─────────────────────────────────────────────────────────────
   gate-4-behavioral:
-    name: "Gate 4 — Behavioral (Domain + Jackson)"
+    name: "Gate 4 — Behavioral (Jackson + Domain)"
     runs-on: ubuntu-latest
     needs: gate-2-compile
     steps:
@@ -104,23 +111,20 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: Run behavioral tests
-        run: mvn test -pl services/customer-service -Dtest="CustomerStatusSerializationTest,CustomerStatusTest"
+      - name: Run serialization and domain unit tests
+        run: mvn test -pl services/customer-service -Dtest="CustomerStatusSerializationTest,CustomerStatusTest" -B
 
   # ─────────────────────────────────────────────────────────────
-  # Gate 5: Integration (Persistence + Runtime)
-  # Validates: Testcontainers DB, Spring context, JPA, REST
+  # Gate 5 — Integration (Testcontainers + PostgreSQL)
+  # Validates: JPA mapping, enum round-trip, persistence adapter.
+  # Docker is available by default on GitHub-hosted runners.
   # ─────────────────────────────────────────────────────────────
   gate-5-integration:
-    name: "Gate 5 — Integration (Testcontainers)"
+    name: "Gate 5 — Integration (Testcontainers + DB)"
     runs-on: ubuntu-latest
     needs:
       - gate-3-architecture-integrity
       - gate-4-behavioral
-    services:
-      docker:
-        image: docker:dind
-        options: --privileged
     steps:
       - uses: actions/checkout@v4
 
@@ -131,10 +135,16 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: Run integration tests
-        run: mvn verify -pl services/customer-service
+      - name: Verify Docker available (required by Testcontainers)
+        run: docker ps
 
-      - name: Upload failsafe reports
+      - name: Run integration tests (customer-service only)
+        # Selective -pl avoids running integration tests for unrelated modules.
+        run: mvn verify -pl common/fintech-common,services/customer-service -B
+        env:
+          TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE: /var/run/docker.sock
+
+      - name: Upload failsafe reports on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -142,8 +152,9 @@ jobs:
           path: services/customer-service/target/failsafe-reports/
 
   # ─────────────────────────────────────────────────────────────
-  # Gate 6: Observability Smoke Test
-  # Validates: Actuator endpoints, metric tags, tracing
+  # Gate 6 — Observability Smoke Test
+  # Validates: Actuator health, metrics endpoint, Prometheus metrics.
+  # Health polling replaces fixed sleep to prevent flaky startup races.
   # ─────────────────────────────────────────────────────────────
   gate-6-observability:
     name: "Gate 6 — Observability Smoke"
@@ -159,28 +170,93 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: Start application in background
-        run: |
-          mvn spring-boot:run -pl services/customer-service \
-            -Dspring-boot.run.profiles=test \
-            -Dspring.datasource.url=jdbc:tc:postgresql:15/testdb &
-          echo "Waiting for application to start..."
-          sleep 30
+      - name: Package application (skip tests — already verified in Gate 5)
+        run: mvn clean package -DskipTests -pl common/fintech-common,services/customer-service -B
 
-      - name: Gate 6a — Health endpoint
+      - name: Start customer-service in background
         run: |
-          curl --fail --retry 5 --retry-delay 5 \
-            http://localhost:8080/actuator/health | \
-            python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='UP', f'Health is {d[\"status\"]}'"
-          echo "Health check passed ✅"
+          cd services/customer-service
+          java -jar target/customer-service-*.jar > /tmp/app.log 2>&1 &
+          echo "APP_PID=$!" >> $GITHUB_ENV
 
-      - name: Gate 6b — Metrics endpoint
+      - name: Wait for application readiness (health polling — max 60s)
+        # Polling replaces fixed 'sleep 10': handles CI runner variability.
         run: |
-          curl --fail http://localhost:8080/actuator/metrics
-          echo "Metrics endpoint reachable ✅"
+          for i in {1..30}; do
+            if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1; then
+              echo "✅ Application ready on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i/30 — waiting 2s..."
+            sleep 2
+          done
+          echo "❌ Application failed to start within 60 seconds"
+          cat /tmp/app.log
+          exit 1
 
-      - name: Gate 6c — Application tag present
+      - name: Gate 6a — Health endpoint is UP
         run: |
-          curl --fail http://localhost:8080/actuator/metrics/jvm.memory.used | \
-            python3 -c "import sys,json; d=json.load(sys.stdin); tags=[t['tag'] for t in d.get('availableTags',[])]; assert 'application' in tags, 'application metric tag missing'"
-          echo "Application metric tag present ✅"
+          STATUS=$(curl -sf http://localhost:8080/actuator/health | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
+          echo "Health status: $STATUS"
+          [ "$STATUS" = "UP" ] || (echo "Health is not UP"; exit 1)
+          echo "✅ Health endpoint OK"
+
+      - name: Gate 6b — Metrics endpoint reachable
+        run: |
+          curl -sf http://localhost:8080/actuator/metrics > /dev/null
+          echo "✅ Metrics endpoint OK"
+
+      - name: Gate 6c — Core JVM metrics present in Prometheus output
+        # Stable grep: 'jvm_memory' prefix is preserved across Micrometer minor versions.
+        # Exact metric name (e.g., jvm_memory_used_bytes vs jvm_memory_usage_bytes) may vary.
+        run: |
+          METRICS=$(curl -sf http://localhost:8080/actuator/prometheus)
+          echo "$METRICS" | grep -q "jvm_memory" || (echo "❌ jvm_memory metrics missing from Prometheus output"; exit 1)
+          echo "✅ Core JVM metrics present in Prometheus endpoint"
+
+      - name: Gate 6d — Application tag present on metrics
+        run: |
+          METRICS=$(curl -sf http://localhost:8080/actuator/prometheus)
+          echo "$METRICS" | grep -q 'application="customer-service"' || (echo "❌ application metric tag missing"; exit 1)
+          echo "✅ Application metric tag present"
+
+      - name: Stop application
+        if: always()
+        run: kill ${{ env.APP_PID }} || true
+
+  # ─────────────────────────────────────────────────────────────
+  # Summary — All Gates Must Pass
+  # ─────────────────────────────────────────────────────────────
+  summary:
+    name: "All Gates Passed ✅"
+    runs-on: ubuntu-latest
+    needs:
+      - gate-1-dependency-resolution
+      - gate-2-compile
+      - gate-3-architecture-integrity
+      - gate-4-behavioral
+      - gate-5-integration
+      - gate-6-observability
+    if: always()
+    steps:
+      - name: Evaluate all gate results
+        run: |
+          GATES=(
+            "${{ needs.gate-1-dependency-resolution.result }}"
+            "${{ needs.gate-2-compile.result }}"
+            "${{ needs.gate-3-architecture-integrity.result }}"
+            "${{ needs.gate-4-behavioral.result }}"
+            "${{ needs.gate-5-integration.result }}"
+            "${{ needs.gate-6-observability.result }}"
+          )
+          FAILED=false
+          for GATE in "${GATES[@]}"; do
+            if [ "$GATE" = "failure" ] || [ "$GATE" = "cancelled" ]; then
+              FAILED=true
+            fi
+          done
+          if [ "$FAILED" = "true" ]; then
+            echo "❌ One or more Spring Boot upgrade validation gates failed."
+            exit 1
+          fi
+          echo "✅ All 6 Spring Boot 3.5 upgrade validation gates passed. Merge approved."

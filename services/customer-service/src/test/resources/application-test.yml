@@ -3,8 +3,8 @@ spring:
     name: customer-service
   datasource:
     # Testcontainers JDBC URL format: jdbc:tc:<database>:<version>/<dbname>
-    # The tc: prefix signals the Testcontainers proxy driver to provision the container.
-    # Malformed paths (e.g. ///test_db) cause "Cannot create JDBC connection" at test startup.
+    # The tc: prefix triggers the Testcontainers proxy driver to spin up the container.
+    # Container lifecycle is managed by the JDBC driver — no @Testcontainers annotation needed.
     url: jdbc:tc:postgresql:15/testdb
     driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
     username: test
@@ -14,15 +14,17 @@ spring:
       ddl-auto: create-drop
     properties:
       hibernate:
-        # PostgreSQL15Dialect aligns with testcontainers-bom postgres:15 image
-        dialect: org.hibernate.dialect.PostgreSQL15Dialect
+        # Spring Boot 3.5 + Hibernate 6 auto-detects dialect from JDBC metadata.
+        # Explicit PostgreSQL15Dialect removed: causes version lock and drift risk.
+        format_sql: true
+        use_sql_comments: true
         jdbc:
           "[batch_size]": 20
         "[order_inserts]": true
         "[order_updates]": true
 
 # Actuator configuration for integration tests
-# Exposes observability endpoints to verify contracts (ADR-0008: Observability Gate)
+# Exposes endpoints to verify observability contracts (ADR-0008: Gate 6)
 management:
   endpoints:
     web:
@@ -38,7 +40,7 @@ management:
       system: true
     tags:
       application: customer-service
-  # Spring Boot 3.3+: simple metrics export namespace moved
+  # Spring Boot 3.3+ metrics export namespace (migrated from management.metrics.export.simple)
   simple:
     metrics:
       export:

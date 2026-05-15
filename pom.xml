@@ -47,6 +47,7 @@
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
         <maven-failsafe-plugin.version>3.2.5</maven-failsafe-plugin.version>
+        <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
     </properties>
 
     <!--
@@ -164,8 +165,80 @@
                     </executions>
                 </plugin>
 
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <version>${maven-enforcer-plugin.version}</version>
+                </plugin>
+
             </plugins>
         </pluginManagement>
+
+        <!--
+        Enforcer executes on every build (validate phase).
+        Rules are defined here — not in child modules — to enforce platform-wide governance.
+        See: ADR-0008 §"Dependency Governance"
+        -->
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+
+                    <!-- EXECUTION 1: Platform baseline invariants -->
+                    <execution>
+                        <id>enforce-platform-baseline</id>
+                        <phase>validate</phase>
+                        <goals><goal>enforce</goal></goals>
+                        <configuration>
+                            <rules>
+                                <!-- Java 21 is non-negotiable for this platform (ADR-0008) -->
+                                <requireJavaVersion>
+                                    <version>[21,)</version>
+                                    <message>Platform requires Java 21 or higher (ADR-0008). Current: ${java.version}</message>
+                                </requireJavaVersion>
+                                <!-- Maven 3.8.1+ blocks HTTP repository access (security baseline) -->
+                                <requireMavenVersion>
+                                    <version>[3.8.1,)</version>
+                                    <message>Maven 3.8.1+ required (security: HTTP dependency blocking). Current: ${maven.version}</message>
+                                </requireMavenVersion>
+                                <!-- Fail on transitive dependency version conflicts -->
+                                <dependencyConvergence/>
+                            </rules>
+                        </configuration>
+                    </execution>
+
+                    <!-- EXECUTION 2: Banned EOL dependencies -->
+                    <!--
+                    Only Spring Boot 3.2.x is EOL (since 2024-12-31).
+                    Maven Enforcer bannedDependencies uses groupId:artifactId[:type[:classifier[:version]]] format.
+                    Wildcard on version is not natively supported — requireUpperBoundDeps is
+                    a future addition once the ecosystem (Netty, Jackson) stabilizes.
+                    The dependencyConvergence rule above already guards against version drift.
+                    -->
+                    <execution>
+                        <id>enforce-banned-namespace</id>
+                        <phase>validate</phase>
+                        <goals><goal>enforce</goal></goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <searchTransitive>true</searchTransitive>
+                                    <message>Old javax.* namespace detected. Platform uses jakarta.* exclusively (Spring Boot 3.x).</message>
+                                    <excludes>
+                                        <!-- Ban old javax.* namespace: platform uses jakarta.* exclusively -->
+                                        <exclude>javax.servlet:servlet-api</exclude>
+                                        <exclude>javax.inject:javax.inject</exclude>
+                                        <exclude>javax.persistence:javax.persistence-api</exclude>
+                                    </excludes>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+
+                </executions>
+            </plugin>
+        </plugins>
     </build>
 
 </project>

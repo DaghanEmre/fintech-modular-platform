@@ -2,8 +2,9 @@ package com.daghanemre.fintech.customer.adapter.rest.serialization;
 
 import com.daghanemre.fintech.customer.domain.model.CustomerStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.json.JsonTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -11,55 +12,45 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Enum Serialization Compatibility Test (ADR-0008 — Risk Mitigation Gate 4: Behavioral)
  *
- * <p>Verifies that Jackson serialization behavior is stable across Spring Boot upgrades.
- * Spring Boot 3.2 → 3.5 may silently change Jackson defaults around enum coercion
- * and unknown value handling. This test prevents behavioral drift.
+ * <p>This is NOT a pure Jackson test. It is a SPRING BOOT RUNTIME CONTRACT verification.
  *
- * <p>Design decision: Pure unit test, no Spring context (@JsonTest removed).
- * Rationale: serialization contract is pure Jackson behavior — no Spring wiring needed.
- * Benefits: ~100ms → ~5ms execution, no context boot overhead, runs even if app context fails.
+ * <p>Key distinction: {@code new ObjectMapper()} ≠ Spring Boot's auto-configured ObjectMapper.
+ * Spring Boot registers Jackson modules, naming strategies, and serialization policies.
+ * A standalone instance misses all of these — silent drift would not be caught.
  *
- * <p>Scenarios covered:
+ * <p>{@code @JsonTest} is NOT bloat:
  * <ul>
- *   <li>Serialization: enum → JSON string (not ordinal)</li>
- *   <li>Deserialization: JSON string → enum</li>
- *   <li>Forward compatibility: unknown future enum values via {@code safeParse}</li>
- *   <li>Deserialization drift: unknown values trigger explicit failure (not silent null)</li>
- *   <li>Null safety: null input to {@code safeParse} returns {@code Optional.empty()}</li>
+ *   <li>It is a minimal slice — only JSON configuration is loaded</li>
+ *   <li>Startup takes ~200ms vs ~2s for full {@code @SpringBootTest}</li>
+ *   <li>It verifies the production mapper, not raw Jackson defaults</li>
+ *   <li>Spring Boot 3.2 → 3.5 may ship different Jackson modules or defaults</li>
  * </ul>
  *
- * <p>Package rationale: placed under {@code adapter.rest.serialization} because this test
- * validates the Jackson/domain contract at the API boundary, not pure domain logic
- * (which lives in {@code domain.model.CustomerStatusTest}).
+ * <p>Package rationale: {@code adapter.rest.serialization} — validates the Jackson/domain
+ * contract at the API boundary, not pure domain logic (see {@code domain.model.CustomerStatusTest}).
  *
  * @see com.daghanemre.fintech.customer.domain.model.CustomerStatus
- * @see com.daghanemre.fintech.customer.domain.model.CustomerStatusTest
  */
+@JsonTest
 class CustomerStatusSerializationTest {
 
+    @Autowired
     private ObjectMapper objectMapper;
-
-    @BeforeEach
-    void setUp() {
-        // Standalone ObjectMapper — no Spring context needed for serialization contract tests.
-        objectMapper = new ObjectMapper();
-    }
 
     @Test
     void shouldSerializeCustomerStatusAsString() throws Exception {
-        // Enum must serialize as string "ACTIVE", not as ordinal 0.
-        // Risk: Spring Boot upgrade may change Jackson enum serialization defaults.
+        // Spring Boot configured ObjectMapper must serialize enum as string, not ordinal.
+        // Risk: Boot version upgrade may change Jackson enum defaults silently.
         String json = objectMapper.writeValueAsString(CustomerStatus.ACTIVE);
 
         assertThat(json)
-                .as("CustomerStatus enum must serialize as JSON string, not ordinal")
+                .as("CustomerStatus must serialize as JSON string via Spring Boot ObjectMapper")
                 .isEqualTo("\"ACTIVE\"");
     }
 
     @Test
     void shouldDeserializeCustomerStatusFromString() throws Exception {
-        // Deserialization must be the inverse of serialization.
-        // Risk: Jackson version change may alter case sensitivity or enum mapping behavior.
+        // Deserialization must be the inverse of serialization via the same configured mapper.
         CustomerStatus result = objectMapper.readValue("\"ACTIVE\"", CustomerStatus.class);
 
         assertThat(result)
@@ -69,7 +60,6 @@ class CustomerStatusSerializationTest {
 
     @Test
     void shouldParseKnownCustomerStatus() {
-        // Domain safeParse must resolve known values.
         var result = CustomerStatus.safeParse("ACTIVE");
 
         assertThat(result)
@@ -79,31 +69,26 @@ class CustomerStatusSerializationTest {
 
     @Test
     void shouldTolerateUnknownFutureCustomerStatus() {
-        // Forward compatibility: newer producer sends "FROZEN" which this consumer doesn't know.
-        // Expected: graceful degradation via Optional.empty(), not an exception.
+        // Forward compatibility: newer producer sends unknown value — must not crash.
         var result = CustomerStatus.safeParse("FROZEN");
 
         assertThat(result)
-                .as("Unknown future enum value should not crash; must return Optional.empty()")
+                .as("Unknown future enum value must return Optional.empty(), not throw")
                 .isEmpty();
     }
 
     @Test
-    void shouldFailGracefullyForUnknownEnumDuringJacksonDeserialization() {
-        // Production risk: older consumer receives unknown enum value from newer producer.
-        // Jackson's default behavior throws an exception — this test explicitly verifies
-        // and documents that contract so any change (e.g., to silent null) is caught.
-        //
-        // If future-proof handling is needed, consider @JsonEnumDefaultValue on an UNKNOWN
-        // sentinel value (architectural decision — track in ADR-0006 when created).
+    void shouldFailExplicitlyForUnknownEnumDuringJacksonDeserialization() {
+        // Jackson's default: throw on unknown enum. This test documents the contract.
+        // If this behavior changes (e.g., to silent null), the test will catch it.
+        // See ADR-0006 (planned) for @JsonEnumDefaultValue strategy consideration.
         assertThatThrownBy(() -> objectMapper.readValue("\"FROZEN\"", CustomerStatus.class))
-                .as("Jackson deserialization of unknown enum value must throw an exception")
+                .as("Unknown enum value must cause Jackson to throw, not return null")
                 .isInstanceOf(Exception.class);
     }
 
     @Test
     void shouldHandleNullGracefully() {
-        // Null input must not cause NullPointerException in safeParse.
         var result = CustomerStatus.safeParse(null);
 
         assertThat(result)
