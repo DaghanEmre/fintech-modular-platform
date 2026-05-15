@@ -38,8 +38,10 @@ jobs:
       - name: Check Spring Boot version in dependency tree
         run: mvn dependency:tree -Dincludes=org.springframework.boot -B
 
-      - name: Run Maven Enforcer (Java baseline + dependency convergence + banned deps)
-        run: mvn enforcer:enforce -B
+      - name: Run Maven Enforcer via validate phase
+        # Direct 'mvn enforcer:enforce' ignores <execution> blocks — rules are lifecycle-bound.
+        # Running 'validate' phase correctly triggers enforce-platform-baseline and enforce-banned-namespace.
+        run: mvn validate -B
 
       - name: Upload dependency tree as artifact
         run: mvn dependency:tree > dependency-tree.txt
