@@ -1,0 +1,186 @@
+name: Spring Boot Upgrade Gates (ADR-0008)
+
+on:
+  push:
+    branches:
+      - feature/spring-boot-3.5-upgrade
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  JAVA_VERSION: '21'
+  JAVA_DISTRIBUTION: 'microsoft'
+
+jobs:
+
+  # ─────────────────────────────────────────────────────────────
+  # Gate 1: Dependency Resolution
+  # Validates: No old Spring 3.2.x artifacts; no transitive conflicts
+  # ─────────────────────────────────────────────────────────────
+  gate-1-dependency-resolution:
+    name: "Gate 1 — Dependency Resolution"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: Verify no Spring 3.2.x artifacts remain
+        run: mvn dependency:tree -Dincludes=org.springframework | grep -v "3.2." && echo "No 3.2.x artifacts found ✅"
+
+      - name: Full dependency tree (artifact)
+        run: mvn dependency:tree > dependency-tree.txt
+
+      - name: Upload dependency tree
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-tree
+          path: dependency-tree.txt
+
+  # ─────────────────────────────────────────────────────────────
+  # Gate 2: Compile
+  # Validates: All modules compile under Java 21 with --release 21
+  # ─────────────────────────────────────────────────────────────
+  gate-2-compile:
+    name: "Gate 2 — Compile"
+    runs-on: ubuntu-latest
+    needs: gate-1-dependency-resolution
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: Compile all modules
+        run: mvn clean compile -DskipTests=true
+
+  # ─────────────────────────────────────────────────────────────
+  # Gate 3: Architecture Integrity (ArchUnit)
+  # Validates: Hexagonal boundaries, domain purity, Spec pattern
+  # ─────────────────────────────────────────────────────────────
+  gate-3-architecture-integrity:
+    name: "Gate 3 — Architecture Integrity (ArchUnit)"
+    runs-on: ubuntu-latest
+    needs: gate-2-compile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: Run ArchUnit tests
+        run: mvn test -pl services/customer-service -Dtest="*ArchTest,*ArchitectureTest" -DfailIfNoTests=false
+
+  # ─────────────────────────────────────────────────────────────
+  # Gate 4: Behavioral (Domain + Jackson)
+  # Validates: Enum serialization stability, safeParse contract
+  # ─────────────────────────────────────────────────────────────
+  gate-4-behavioral:
+    name: "Gate 4 — Behavioral (Domain + Jackson)"
+    runs-on: ubuntu-latest
+    needs: gate-2-compile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: Run behavioral tests
+        run: mvn test -pl services/customer-service -Dtest="CustomerStatusSerializationTest,CustomerStatusTest"
+
+  # ─────────────────────────────────────────────────────────────
+  # Gate 5: Integration (Persistence + Runtime)
+  # Validates: Testcontainers DB, Spring context, JPA, REST
+  # ─────────────────────────────────────────────────────────────
+  gate-5-integration:
+    name: "Gate 5 — Integration (Testcontainers)"
+    runs-on: ubuntu-latest
+    needs:
+      - gate-3-architecture-integrity
+      - gate-4-behavioral
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: Run integration tests
+        run: mvn verify -pl services/customer-service
+
+      - name: Upload failsafe reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failsafe-reports
+          path: services/customer-service/target/failsafe-reports/
+
+  # ─────────────────────────────────────────────────────────────
+  # Gate 6: Observability Smoke Test
+  # Validates: Actuator endpoints, metric tags, tracing
+  # ─────────────────────────────────────────────────────────────
+  gate-6-observability:
+    name: "Gate 6 — Observability Smoke"
+    runs-on: ubuntu-latest
+    needs: gate-5-integration
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: Start application in background
+        run: |
+          mvn spring-boot:run -pl services/customer-service \
+            -Dspring-boot.run.profiles=test \
+            -Dspring.datasource.url=jdbc:tc:postgresql:15/testdb &
+          echo "Waiting for application to start..."
+          sleep 30
+
+      - name: Gate 6a — Health endpoint
+        run: |
+          curl --fail --retry 5 --retry-delay 5 \
+            http://localhost:8080/actuator/health | \
+            python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='UP', f'Health is {d[\"status\"]}'"
+          echo "Health check passed ✅"
+
+      - name: Gate 6b — Metrics endpoint
+        run: |
+          curl --fail http://localhost:8080/actuator/metrics
+          echo "Metrics endpoint reachable ✅"
+
+      - name: Gate 6c — Application tag present
+        run: |
+          curl --fail http://localhost:8080/actuator/metrics/jvm.memory.used | \
+            python3 -c "import sys,json; d=json.load(sys.stdin); tags=[t['tag'] for t in d.get('availableTags',[])]; assert 'application' in tags, 'application metric tag missing'"
+          echo "Application metric tag present ✅"

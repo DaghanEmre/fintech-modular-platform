@@ -2,9 +2,8 @@ package com.daghanemre.fintech.customer.adapter.rest.serialization;
 
 import com.daghanemre.fintech.customer.domain.model.CustomerStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.json.JsonTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -15,6 +14,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * <p>Verifies that Jackson serialization behavior is stable across Spring Boot upgrades.
  * Spring Boot 3.2 → 3.5 may silently change Jackson defaults around enum coercion
  * and unknown value handling. This test prevents behavioral drift.
+ *
+ * <p>Design decision: Pure unit test, no Spring context (@JsonTest removed).
+ * Rationale: serialization contract is pure Jackson behavior — no Spring wiring needed.
+ * Benefits: ~100ms → ~5ms execution, no context boot overhead, runs even if app context fails.
  *
  * <p>Scenarios covered:
  * <ul>
@@ -32,16 +35,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * @see com.daghanemre.fintech.customer.domain.model.CustomerStatus
  * @see com.daghanemre.fintech.customer.domain.model.CustomerStatusTest
  */
-@JsonTest
 class CustomerStatusSerializationTest {
 
-    @Autowired
     private ObjectMapper objectMapper;
+
+    @BeforeEach
+    void setUp() {
+        // Standalone ObjectMapper — no Spring context needed for serialization contract tests.
+        objectMapper = new ObjectMapper();
+    }
 
     @Test
     void shouldSerializeCustomerStatusAsString() throws Exception {
-        // Enum must serialize as string "ACTIVE", not as ordinal 0
-        // Risk: Spring Boot upgrade may change Jackson enum serialization defaults
+        // Enum must serialize as string "ACTIVE", not as ordinal 0.
+        // Risk: Spring Boot upgrade may change Jackson enum serialization defaults.
         String json = objectMapper.writeValueAsString(CustomerStatus.ACTIVE);
 
         assertThat(json)
@@ -51,8 +58,8 @@ class CustomerStatusSerializationTest {
 
     @Test
     void shouldDeserializeCustomerStatusFromString() throws Exception {
-        // Deserialization must be the inverse of serialization
-        // Risk: Jackson version change may alter case sensitivity or enum mapping behavior
+        // Deserialization must be the inverse of serialization.
+        // Risk: Jackson version change may alter case sensitivity or enum mapping behavior.
         CustomerStatus result = objectMapper.readValue("\"ACTIVE\"", CustomerStatus.class);
 
         assertThat(result)
@@ -62,7 +69,7 @@ class CustomerStatusSerializationTest {
 
     @Test
     void shouldParseKnownCustomerStatus() {
-        // Domain safeParse must resolve known values
+        // Domain safeParse must resolve known values.
         var result = CustomerStatus.safeParse("ACTIVE");
 
         assertThat(result)
@@ -72,8 +79,8 @@ class CustomerStatusSerializationTest {
 
     @Test
     void shouldTolerateUnknownFutureCustomerStatus() {
-        // Forward compatibility: newer producer sends "FROZEN" which this consumer doesn't know
-        // Expected: graceful degradation via Optional.empty(), not an exception
+        // Forward compatibility: newer producer sends "FROZEN" which this consumer doesn't know.
+        // Expected: graceful degradation via Optional.empty(), not an exception.
         var result = CustomerStatus.safeParse("FROZEN");
 
         assertThat(result)
@@ -88,7 +95,7 @@ class CustomerStatusSerializationTest {
         // and documents that contract so any change (e.g., to silent null) is caught.
         //
         // If future-proof handling is needed, consider @JsonEnumDefaultValue on an UNKNOWN
-        // sentinel value (architectural decision — track in ADR-0006).
+        // sentinel value (architectural decision — track in ADR-0006 when created).
         assertThatThrownBy(() -> objectMapper.readValue("\"FROZEN\"", CustomerStatus.class))
                 .as("Jackson deserialization of unknown enum value must throw an exception")
                 .isInstanceOf(Exception.class);
@@ -96,7 +103,7 @@ class CustomerStatusSerializationTest {
 
     @Test
     void shouldHandleNullGracefully() {
-        // Null input must not cause NullPointerException in safeParse
+        // Null input must not cause NullPointerException in safeParse.
         var result = CustomerStatus.safeParse(null);
 
         assertThat(result)

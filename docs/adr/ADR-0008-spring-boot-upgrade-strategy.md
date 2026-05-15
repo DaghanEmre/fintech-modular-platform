@@ -171,6 +171,14 @@ Verify post-upgrade:
 
 - [Spring Boot 3.5.14 Release Notes](https://spring.io/blog/2026/04/23/spring-boot-3-5-14-available-now)
 - [Spring Boot 3.2.x EOL](https://spring.io/projects/spring-boot#support)
-- ADR-0005: Metrics & Observability Strategy
-- ADR-0006: Enum Ownership Strategy
+- ADR-0001: Hexagonal Architecture & Port/Adapter Model
 - ADR-0007: Architecture Guardrails (ArchUnit)
+
+## Related ADRs (Planned — Not Yet Created)
+
+> [!NOTE]
+> The following ADRs are referenced in gate descriptions and risk mitigations
+> but have not been formally created yet. They represent the next logical documentation targets.
+
+- ADR-0005: Metrics & Observability Strategy *(planned)*
+- ADR-0006: Enum Ownership & Serialization Strategy *(planned — see CustomerStatus forward-compat design)*

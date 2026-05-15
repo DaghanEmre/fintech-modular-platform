@@ -2,14 +2,20 @@ spring:
   application:
     name: customer-service
   datasource:
-    url: jdbc:tc:postgresql:///test_db
+    # Testcontainers JDBC URL format: jdbc:tc:<database>:<version>/<dbname>
+    # The tc: prefix signals the Testcontainers proxy driver to provision the container.
+    # Malformed paths (e.g. ///test_db) cause "Cannot create JDBC connection" at test startup.
+    url: jdbc:tc:postgresql:15/testdb
     driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    username: test
+    password: test
   jpa:
     hibernate:
       ddl-auto: create-drop
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        # PostgreSQL15Dialect aligns with testcontainers-bom postgres:15 image
+        dialect: org.hibernate.dialect.PostgreSQL15Dialect
         jdbc:
           "[batch_size]": 20
         "[order_inserts]": true
