@@ -5,17 +5,18 @@ spring:
     # Testcontainers JDBC URL format: jdbc:tc:<database>:<version>/<dbname>
     # The tc: prefix triggers the Testcontainers proxy driver to spin up the container.
     # Container lifecycle is managed by the JDBC driver — no @Testcontainers annotation needed.
-    url: jdbc:tc:postgresql:15/testdb
+    url: jdbc:tc:postgresql:15:///testdb
     driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
     username: test
     password: test
   jpa:
     hibernate:
       ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     properties:
       hibernate:
-        # Spring Boot 3.5 + Hibernate 6 auto-detects dialect from JDBC metadata.
-        # Explicit PostgreSQL15Dialect removed: causes version lock and drift risk.
+        # Spring Boot 3.5 + Hibernate 6 often fails to auto-detect dialect from Testcontainers JDBC proxy URL.
+        # Explicit PostgreSQLDialect added to prevent "Unable to determine Dialect without JDBC metadata" error.
         format_sql: true
         use_sql_comments: true
         jdbc:
