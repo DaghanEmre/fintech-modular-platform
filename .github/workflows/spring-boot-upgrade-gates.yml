@@ -216,7 +216,7 @@ jobs:
         # Polling replaces fixed 'sleep 10': handles CI runner variability.
         run: |
           for i in {1..30}; do
-            if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1; then
+            if curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1; then
               echo "✅ Application ready on attempt $i"
               exit 0
             fi
@@ -229,27 +229,27 @@ jobs:
 
       - name: Gate 6a — Health endpoint is UP
         run: |
-          STATUS=$(curl -sf http://localhost:8080/actuator/health | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
+          STATUS=$(curl -sf http://localhost:8081/actuator/health | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
           echo "Health status: $STATUS"
           [ "$STATUS" = "UP" ] || (echo "Health is not UP"; exit 1)
           echo "✅ Health endpoint OK"
 
       - name: Gate 6b — Metrics endpoint reachable
         run: |
-          curl -sf http://localhost:8080/actuator/metrics > /dev/null
+          curl -sf http://localhost:8081/actuator/metrics > /dev/null
           echo "✅ Metrics endpoint OK"
 
       - name: Gate 6c — Core JVM metrics present in Prometheus output
         # Stable grep: 'jvm_memory' prefix is preserved across Micrometer minor versions.
         # Exact metric name (e.g., jvm_memory_used_bytes vs jvm_memory_usage_bytes) may vary.
         run: |
-          METRICS=$(curl -sf http://localhost:8080/actuator/prometheus)
+          METRICS=$(curl -sf http://localhost:8081/actuator/prometheus)
           echo "$METRICS" | grep -q "jvm_memory" || (echo "❌ jvm_memory metrics missing from Prometheus output"; exit 1)
           echo "✅ Core JVM metrics present in Prometheus endpoint"
 
       - name: Gate 6d — Application tag present on metrics
         run: |
-          METRICS=$(curl -sf http://localhost:8080/actuator/prometheus)
+          METRICS=$(curl -sf http://localhost:8081/actuator/prometheus)
           echo "$METRICS" | grep -q 'application="customer-service"' || (echo "❌ application metric tag missing"; exit 1)
           echo "✅ Application metric tag present"
 
