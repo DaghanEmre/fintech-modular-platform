@@ -92,7 +92,8 @@ jobs:
 
       - name: Run ArchUnit tests
         # HARD gate — no continue-on-error. Architecture integrity is a first-class invariant.
-        run: mvn test -pl services/customer-service -Dtest="*ArchTest,*ArchitectureTest" -DfailIfNoTests=false -B
+        # -am (also-make): builds fintech-common first on the fresh CI runner before testing customer-service.
+        run: mvn test -pl services/customer-service -am -Dtest="*ArchTest,*ArchitectureTest" -DfailIfNoTests=false -B
 
   # ─────────────────────────────────────────────────────────────
   # Gate 4 — Behavioral (Spring Boot Jackson + Domain)
@@ -114,7 +115,8 @@ jobs:
           cache: maven
 
       - name: Run serialization and domain unit tests
-        run: mvn test -pl services/customer-service -Dtest="CustomerStatusSerializationTest,CustomerStatusTest" -B
+        # -am: ensures fintech-common is compiled first on the fresh CI runner.
+        run: mvn test -pl services/customer-service -am -Dtest="CustomerStatusSerializationTest,CustomerStatusTest" -B
 
   # ─────────────────────────────────────────────────────────────
   # Gate 5 — Integration (Testcontainers + PostgreSQL)
