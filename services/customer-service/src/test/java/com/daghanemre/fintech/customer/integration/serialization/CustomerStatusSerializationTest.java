@@ -1,4 +1,4 @@
-package com.daghanemre.fintech.customer.adapter.rest.serialization;
+package com.daghanemre.fintech.customer.integration.serialization;
 
 import com.daghanemre.fintech.customer.domain.model.CustomerStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *   <li>Spring Boot 3.2 → 3.5 may ship different Jackson modules or defaults</li>
  * </ul>
  *
- * <p>Package rationale: {@code adapter.rest.serialization} — validates the Jackson/domain
+ * <p>Package rationale: {@code integration.serialization} — validates the Jackson/domain
  * contract at the API boundary, not pure domain logic (see {@code domain.model.CustomerStatusTest}).
  *
  * @see com.daghanemre.fintech.customer.domain.model.CustomerStatus
@@ -81,7 +81,7 @@ class CustomerStatusSerializationTest {
     void shouldFailExplicitlyForUnknownEnumDuringJacksonDeserialization() {
         // Jackson's default: throw on unknown enum. This test documents the contract.
         // If this behavior changes (e.g., to silent null), the test will catch it.
-        // See ADR-0006 (planned) for @JsonEnumDefaultValue strategy consideration.
+        // See ADR-0006 for @JsonEnumDefaultValue strategy consideration.
         assertThatThrownBy(() -> objectMapper.readValue("\"FROZEN\"", CustomerStatus.class))
                 .as("Unknown enum value must cause Jackson to throw, not return null")
                 .isInstanceOf(Exception.class);

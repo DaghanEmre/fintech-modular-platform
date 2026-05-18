@@ -125,8 +125,9 @@ mvn verify
 
 ### Gate 6 — Observability
 ```bash
-curl http://localhost:8080/actuator/health
-curl http://localhost:8080/actuator/metrics
+# Note: CI smoke tests run on port 8081 to avoid local port conflicts.
+curl http://localhost:8081/actuator/health
+curl http://localhost:8081/actuator/metrics
 ```
 **Validates**: Actuator endpoint exposure, metric tag stability (`application: customer-service`), tracing propagation.
 
@@ -171,14 +172,12 @@ Verify post-upgrade:
 
 - [Spring Boot 3.5.14 Release Notes](https://spring.io/blog/2026/04/23/spring-boot-3-5-14-available-now)
 - [Spring Boot 3.2.x EOL](https://spring.io/projects/spring-boot#support)
-- ADR-0001: Hexagonal Architecture & Port/Adapter Model
-- ADR-0007: Architecture Guardrails (ArchUnit)
+## Related ADRs
 
-## Related ADRs (Planned — Not Yet Created)
-
-> [!NOTE]
-> The following ADRs are referenced in gate descriptions and risk mitigations
-> but have not been formally created yet. They represent the next logical documentation targets.
-
-- ADR-0005: Metrics & Observability Strategy *(planned)*
-- ADR-0006: Enum Ownership & Serialization Strategy *(planned — see CustomerStatus forward-compat design)*
+- [ADR-0001: Hexagonal Architecture & Port/Adapter Model](file:///c:/Users/dagha/workspace/fintech-modular-platform/docs/adr/0001-use-hexagonal-architecture.md)
+- [ADR-0002: Customer Domain Model Design](file:///c:/Users/dagha/workspace/fintech-modular-platform/docs/adr/0002-customer-domain-model-design.md)
+- [ADR-0003: Application Layer Design](file:///c:/Users/dagha/workspace/fintech-modular-platform/docs/adr/0003-application-layer-design.md)
+- [ADR-0004: Specification Pattern](file:///c:/Users/dagha/workspace/fintech-modular-platform/docs/adr/ADR-0004-specification-pattern.md)
+- [ADR-0005: Metrics & Observability Strategy](file:///c:/Users/dagha/workspace/fintech-modular-platform/docs/adr/ADR-0005-metrics-observability.md)
+- [ADR-0006: Enum Ownership & Serialization Strategy](file:///c:/Users/dagha/workspace/fintech-modular-platform/docs/adr/ADR-0006-enum-ownership.md)
+- [ADR-0007: Architecture Guardrails (ArchUnit)](file:///c:/Users/dagha/workspace/fintech-modular-platform/docs/adr/ADR-0007-architecture-guardrails.md)

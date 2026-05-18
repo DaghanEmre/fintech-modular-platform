@@ -236,6 +236,26 @@
                         </configuration>
                     </execution>
 
+                    <!-- EXECUTION 3: Banned EOL Spring Boot versions (ADR-0008) -->
+                    <execution>
+                        <id>enforce-banned-eol-spring-boot</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <searchTransitive>true</searchTransitive>
+                                    <message>Spring Boot 3.2.x (and earlier EOL versions) is banned by ADR-0008.</message>
+                                    <excludes>
+                                        <exclude>org.springframework.boot:*:[1.0.0,3.3.0-M1)</exclude>
+                                    </excludes>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+
                 </executions>
             </plugin>
         </plugins>

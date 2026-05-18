@@ -19,17 +19,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Integration Test: JPA Persistence Layer with Real PostgreSQL (ADR-0008 Gate 5)
  *
  * <p>Package: {@code integration.persistence} — not {@code adapter.persistence}.
- * This test verifies the persistence BOUNDARY, not the adapter unit.
- * It crosses infrastructure concerns (Spring Data JPA, Testcontainers, PostgreSQL).
+ * This test intentionally verifies the infrastructure persistence layer directly:
+ * {@code SpringDataCustomerRepository} + {@code CustomerJpaEntity}.
  *
- * <p>Boundary contract:
- * <ul>
- *   <li>Domain aggregates ({@code Customer}) flow through the repository PORT interface.</li>
- *   <li>The JPA adapter ({@code CustomerJpaRepositoryAdapter}) handles mapping internally.</li>
- *   <li>This test exercises {@code SpringDataCustomerRepository} + {@code CustomerJpaEntity}
- *       directly — the infrastructure layer itself — to verify JPA/Hibernate compatibility
- *       after the Spring Boot 3.5 upgrade.</li>
- * </ul>
+ * <p>Domain port ↔ adapter mapping is verified separately by
+ * {@code CustomerJpaRepositoryAdapterIT}.
  *
  * <p>No {@code @Testcontainers} annotation: the Testcontainers JDBC URL
  * ({@code jdbc:tc:postgresql:15/testdb}) in {@code application-test.yml} causes the driver
@@ -47,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DataJpaTest
 @ActiveProfiles("test")
 @DisplayName("CustomerJpaEntity — Persistence Integration Tests (Gate 5)")
+@SuppressWarnings("null")
 class CustomerJpaRepositoryIT {
 
     @Autowired

@@ -90,19 +90,10 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: Install root POM and upstream dependencies
-        # Fresh CI runner dependency chain: customer-service → fintech-common → root POM.
-        # Maven resolves the parent chain before any module compiles.
-        # -N (non-recursive): installs ONLY the root POM artifact, no submodules.
-        # This makes com.daghanemre.fintech:fintech-modular-platform:pom available in local repo.
-        run: |
-          mvn install -N -DskipTests -B
-          mvn install -pl common/fintech-common -DskipTests -B
-
       - name: Run ArchUnit tests
         # HARD gate — architecture is a first-class invariant.
-        # Single-module reactor (-pl only, no -am) ensures -Dtest pattern runs only here.
-        run: mvn test -pl services/customer-service -Dtest="*ArchTest,*ArchitectureTest" -DfailIfNoTests=false -B
+        # Using -am (also-make) automatically resolves reactor dependencies (fintech-common) and root POM first.
+        run: mvn test -pl services/customer-service -am -Dtest="*ArchTest,*ArchitectureTest" -DfailIfNoTests=false -B
 
   # ─────────────────────────────────────────────────────────────
   # Gate 4 — Behavioral (Spring Boot Jackson + Domain)
@@ -123,14 +114,10 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: Install root POM and upstream dependencies
-        # Same dependency chain as Gate 3: root POM → fintech-common → customer-service.
-        run: |
-          mvn install -N -DskipTests -B
-          mvn install -pl common/fintech-common -DskipTests -B
-
-      - name: Run serialization and domain unit tests
-        run: mvn test -pl services/customer-service -Dtest="CustomerStatusSerializationTest,CustomerStatusTest" -B
+      - name: Run all customer-service unit tests
+        # Gate 4 runs all unit tests in customer-service and its dependencies for full test coverage.
+        # Using -am automatically resolves reactor dependencies (fintech-common) and root POM first.
+        run: mvn test -pl services/customer-service -am -B
 
   # ─────────────────────────────────────────────────────────────
   # Gate 5 — Integration (Testcontainers + PostgreSQL)
@@ -209,7 +196,9 @@ jobs:
       - name: Start customer-service in background
         run: |
           cd services/customer-service
-          java -jar target/customer-service-*.jar > /tmp/app.log 2>&1 &
+          java -jar target/customer-service-*.jar \
+            --spring.profiles.active=test \
+            --server.port=8081 > /tmp/app.log 2>&1 &
           echo "APP_PID=$!" >> $GITHUB_ENV
 
       - name: Wait for application readiness (health polling — max 60s)

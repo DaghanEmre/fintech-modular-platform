@@ -15,10 +15,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,info,metrics,prometheus
 
 # Test logging - minimal
 logging:
   level:
     root: WARN
-    com.daghanemre.fintech.customer: INFO
+    "[com.daghanemre.fintech.customer]": INFO
