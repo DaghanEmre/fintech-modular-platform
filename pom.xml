@@ -210,11 +210,10 @@
 
                     <!-- EXECUTION 2: Banned EOL dependencies -->
                     <!--
-                    Only Spring Boot 3.2.x is EOL (since 2024-12-31).
-                    Maven Enforcer bannedDependencies uses groupId:artifactId[:type[:classifier[:version]]] format.
-                    Wildcard on version is not natively supported — requireUpperBoundDeps is
-                    a future addition once the ecosystem (Netty, Jackson) stabilizes.
-                    The dependencyConvergence rule above already guards against version drift.
+                      Only Spring Boot 3.2.x is EOL (since 2024-12-31).
+                      This execution enforces a ban on EOL Spring Boot versions via Maven Enforcer's bannedDependencies rule.
+                      Wildcard version ranges are not supported, so we explicitly exclude the version range [1.0.0,3.3.0-M1).
+                      Dependency convergence already guards against transitive version drift.
                     -->
                     <execution>
                         <id>enforce-banned-namespace</id>

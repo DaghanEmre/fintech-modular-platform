@@ -174,10 +174,10 @@ Verify post-upgrade:
 - [Spring Boot 3.2.x EOL](https://spring.io/projects/spring-boot#support)
 ## Related ADRs
 
-- [ADR-0001: Hexagonal Architecture & Port/Adapter Model](file:///c:/Users/dagha/workspace/fintech-modular-platform/docs/adr/0001-use-hexagonal-architecture.md)
-- [ADR-0002: Customer Domain Model Design](file:///c:/Users/dagha/workspace/fintech-modular-platform/docs/adr/0002-customer-domain-model-design.md)
-- [ADR-0003: Application Layer Design](file:///c:/Users/dagha/workspace/fintech-modular-platform/docs/adr/0003-application-layer-design.md)
-- [ADR-0004: Specification Pattern](file:///c:/Users/dagha/workspace/fintech-modular-platform/docs/adr/ADR-0004-specification-pattern.md)
-- [ADR-0005: Metrics & Observability Strategy](file:///c:/Users/dagha/workspace/fintech-modular-platform/docs/adr/ADR-0005-metrics-observability.md)
-- [ADR-0006: Enum Ownership & Serialization Strategy](file:///c:/Users/dagha/workspace/fintech-modular-platform/docs/adr/ADR-0006-enum-ownership.md)
-- [ADR-0007: Architecture Guardrails (ArchUnit)](file:///c:/Users/dagha/workspace/fintech-modular-platform/docs/adr/ADR-0007-architecture-guardrails.md)
+- [ADR-0001: Hexagonal Architecture & Port/Adapter Model](./0001-use-hexagonal-architecture.md)
+- [ADR-0002: Customer Domain Model Design](./0002-customer-domain-model-design.md)
+- [ADR-0003: Application Layer Design](./0003-application-layer-design.md)
+- [ADR-0004: Specification Pattern](./ADR-0004-specification-pattern.md)
+- [ADR-0005: Metrics & Observability Strategy](./ADR-0005-metrics-observability.md)
+- [ADR-0006: Enum Ownership & Serialization Strategy](./ADR-0006-enum-ownership.md)
+- [ADR-0007: Architecture Guardrails (ArchUnit)](./ADR-0007-architecture-guardrails.md)
