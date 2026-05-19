@@ -9,6 +9,7 @@ on:
 env:
   JAVA_VERSION: '21'
   JAVA_DISTRIBUTION: 'temurin'
+  MAVEN_OPTS: '-Xmx2g -XX:+UseG1GC'
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Pipeline: 6 gates in sequential order, matching ADR-0008 validation pipeline.
@@ -90,10 +91,40 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: Run ArchUnit tests
+      - name: Install fintech-common (skip tests — no ArchUnit tests exist in this module)
+        # -am with -Dtest pattern propagates to ALL reactor modules, causing Surefire to fail
+        # on fintech-common (which has no *ArchTest/*ArchitectureTest classes).
+        # Solution: install fintech-common independently first, then scope ArchUnit run to customer-service only.
+        run: mvn install -pl common/fintech-common -DskipTests -B
+
+      - name: Run ArchUnit tests (customer-service only)
         # HARD gate — architecture is a first-class invariant.
-        # Using -am (also-make) automatically resolves reactor dependencies (fintech-common) and root POM first.
-        run: mvn test -pl services/customer-service -am -Dtest="*ArchTest,*ArchitectureTest" -DfailIfNoTests=false -B
+        #
+        # CRITICAL: Do NOT use -am here. It would re-add fintech-common to the reactor,
+        # causing Surefire to apply -Dtest pattern matching across all modules.
+        # Result: "No tests matching pattern" error in fintech-common (which has no *ArchTest classes).
+        #
+        # Solution: Single -pl scope to customer-service only. fintech-common is already in
+        # the local Maven cache from the install step above, so dependency resolution works.
+        #
+        # -DfailIfNoTests=true enforces that ArchUnit test classes MUST exist in customer-service.
+        # If no *ArchTest/*ArchitectureTest classes are found, the gate fails loudly.
+        run: mvn test -pl services/customer-service -Dtest="*ArchTest,*ArchitectureTest" -DfailIfNoTests=true -B
+
+      - name: Verify ArchUnit test execution (sanity check)
+        # Additional safety: confirm that at least one ArchUnit test ran.
+        # This prevents silent gate passes if the test pattern accidentally matches nothing.
+        run: |
+          if [ ! -f services/customer-service/target/surefire-reports/TEST-*.xml ]; then
+            echo "❌ ERROR: No ArchUnit test reports found. Verify *ArchTest/*ArchitectureTest classes exist."
+            exit 1
+          fi
+          grep -q "tests=" services/customer-service/target/surefire-reports/TEST-*.xml
+          if [ $? -ne 0 ]; then
+            echo "❌ ERROR: ArchUnit test report is empty. No tests executed."
+            exit 1
+          fi
+          echo "✅ ArchUnit tests executed successfully"
 
   # ─────────────────────────────────────────────────────────────
   # Gate 4 — Behavioral (Spring Boot Jackson + Domain)
@@ -117,7 +148,17 @@ jobs:
       - name: Run all customer-service unit tests
         # Gate 4 runs all unit tests in customer-service and its dependencies for full test coverage.
         # Using -am automatically resolves reactor dependencies (fintech-common) and root POM first.
+        # Unlike Gate 3, here we use -am because we want to run ALL test patterns, not a filtered subset.
         run: mvn test -pl services/customer-service -am -B
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-gate4
+          path: |
+            services/customer-service/target/surefire-reports/
+            common/fintech-common/target/surefire-reports/
 
   # ─────────────────────────────────────────────────────────────
   # Gate 5 — Integration (Testcontainers + PostgreSQL)
@@ -145,6 +186,7 @@ jobs:
 
       - name: Run integration tests (customer-service only)
         # Selective -pl avoids running integration tests for unrelated modules.
+        # -verify phase includes both unit (-test) and integration (-failsafe) test execution.
         run: mvn verify -pl common/fintech-common,services/customer-service -B
         env:
           TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE: /var/run/docker.sock
@@ -180,7 +222,13 @@ jobs:
 
       - name: Start Postgres container for smoke test
         run: |
-          docker run --name customer_db -e POSTGRES_DB=customer_db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:15
+          docker run --name customer_db \
+            -e POSTGRES_DB=customer_db \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=postgres \
+            -p 5432:5432 \
+            -d postgres:15
+
           # Polling for readiness is safer than fixed sleep
           for i in {1..20}; do
             if docker exec customer_db pg_isready -U postgres -d customer_db; then
@@ -248,6 +296,13 @@ jobs:
           kill ${{ env.APP_PID }} || true
           docker stop customer_db || true
           docker rm customer_db || true
+
+      - name: Upload application log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: application-log
+          path: /tmp/app.log
 
   # ─────────────────────────────────────────────────────────────
   # Summary — All Gates Must Pass
