@@ -10,8 +10,8 @@ Customer management service for the FinTech Modular Platform. Handles customer l
 - KYC (Know Your Customer) verification (future)
 
 ## Technology Stack
-- Java 17+
-- Spring Boot 3.2.x
+- Java 21+
+- Spring Boot 3.5.x
 - PostgreSQL 15
 - Testcontainers (integration testing)
 - MapStruct (complex DTO mapping, when needed)
@@ -87,24 +87,26 @@ curl -X POST http://localhost:8080/api/v1/customers/550e8400-e29b-41d4-a716-4466
 cp src/main/resources/application-dev.yml src/main/resources/application-local.yml
 
 # Run with local profile
-mvn spring-boot:run -Dspring-boot.run.profiles=local
+mvn -f services/customer-service/pom.xml spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 ## Running the Service
 
 ### Prerequisites
-- Java 17+
+- Java 21+
 - Docker (for integration tests)
 - PostgreSQL (for local development)
 
 ### Build
+From the repository root:
+
 ```bash
 mvn clean compile
 ```
 
 ### Run
 ```bash
-mvn spring-boot:run
+mvn -f services/customer-service/pom.xml spring-boot:run
 ```
 
 ### Test

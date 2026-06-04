@@ -42,6 +42,7 @@
         <!-- Testing -->
         <testcontainers.version>1.21.0</testcontainers.version>
         <archunit.version>1.3.0</archunit.version>
+        <mockito.version>5.17.0</mockito.version>
 
         <!-- Build Plugins -->
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
@@ -149,12 +150,20 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
+                    <configuration>
+                        <!-- Java 21+: use Mockito as an explicit agent instead of runtime self-attach. -->
+                        <argLine>-javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
+                    </configuration>
                 </plugin>
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>${maven-failsafe-plugin.version}</version>
+                    <configuration>
+                        <!-- Keep integration-test JVM behavior aligned with unit tests. -->
+                        <argLine>-javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
+                    </configuration>
                     <executions>
                         <execution>
                             <goals>

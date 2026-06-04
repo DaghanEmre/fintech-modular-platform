@@ -76,12 +76,6 @@ jobs:
   # Gate 3 — Architecture Integrity (ArchUnit)
   # HARD gate: architectural violations fail the build.
   # Validates: Hexagonal boundaries, domain purity, Spec pattern.
-  #
-  # CRITICAL: Parent POM resolution
-  # fintech-common declares parent: fintech-modular-platform (root pom).
-  # When customer-service resolves fintech-common dependency, it reads
-  # fintech-common.pom and looks for the parent in local Maven repo.
-  # Root parent POM must be installed first via: mvn install -N
   # ─────────────────────────────────────────────────────────────
   gate-3-architecture-integrity:
     name: "Gate 3 — Architecture Integrity (ArchUnit)"
@@ -97,71 +91,42 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: "Install root parent POM (aggregator only, no build)"
-        # -N = --non-recursive: installs ONLY the root pom.xml to local Maven repo.
-        # Does NOT compile or package any child modules.
-        #
-        # This satisfies the parent reference declared in fintech-common.pom:
-        #   <parent>
-        #     <artifactId>fintech-modular-platform</artifactId>  ← This POM must exist in local repo
-        #   </parent>
-        #
-        # Without this step, customer-service fails with:
-        #   Could not find artifact fintech-modular-platform:pom:0.0.1-SNAPSHOT (absent)
-        run: mvn install -N -DskipTests -B
-
-      - name: "Install upstream module artifacts (fintech-common)"
-        # Installs fintech-common JAR and POM to local Maven repo.
-        # Now that root parent POM is installed (step above), fintech-common's
-        # parent reference resolves successfully.
+      - name: Install fintech-common (skip tests — no ArchUnit tests exist in this module)
+        # -am with -Dtest pattern propagates to ALL reactor modules, causing Surefire to fail
+        # on fintech-common (which has no *ArchTest/*ArchitectureTest classes).
+        # Solution: install fintech-common independently first, then scope ArchUnit run to customer-service only.
         run: mvn install -pl common/fintech-common -DskipTests -B
 
-      - name: "Run ArchUnit tests in customer-service"
+      - name: Run ArchUnit tests (customer-service only)
         # HARD gate — architecture is a first-class invariant.
         #
-        # At this point:
-        # - Root parent POM is in local repo ✅
-        # - fintech-common JAR+POM are in local repo ✅
-        # - customer-service can resolve fintech-common dependency ✅
+        # CRITICAL: Do NOT use -am here. It would re-add fintech-common to the reactor,
+        # causing Surefire to apply -Dtest pattern matching across all modules.
+        # Result: "No tests matching pattern" error in fintech-common (which has no *ArchTest classes).
         #
-        # CRITICAL: Do NOT use -am here.
-        # -am (also-make) would re-add fintech-common to the reactor, causing Surefire
-        # to apply the -Dtest pattern filter across ALL modules. fintech-common has NO
-        # *ArchTest classes → pattern matching fails even with -DfailIfNoTests=false.
+        # Solution: Single -pl scope to customer-service only. fintech-common is already in
+        # the local Maven cache from the install step above, so dependency resolution works.
         #
-        # Solution: Single -pl scope to customer-service only.
-        # fintech-common is already in local Maven repo, so dependency resolution works.
-        #
-        # -DfailIfNoTests=true: ArchUnit tests MUST exist — silent passes are unacceptable.
-        run: mvn test \
-          -pl services/customer-service \
-          -Dtest="*ArchTest,*ArchitectureTest" \
-          -DfailIfNoTests=true \
-          -B
+        # -DfailIfNoTests=true enforces that ArchUnit test classes MUST exist in customer-service.
+        # If no *ArchTest/*ArchitectureTest classes are found, the gate fails loudly.
+        run: mvn test -pl services/customer-service -Dtest="*ArchTest,*ArchitectureTest" -DfailIfNoTests=true -B
 
-      - name: "Verify ArchUnit test execution (sanity check)"
-        # Ensures tests actually ran (not silently filtered or skipped).
-        # Uses find to safely handle glob expansion and stricter grep pattern
-        # tests="[1-9] to confirm at least one test was executed.
+      - name: Verify ArchUnit test execution (sanity check)
+        # Additional safety: confirm that at least one ArchUnit test ran.
+        # This prevents silent gate passes if the test pattern accidentally matches nothing.
         run: |
           REPORT_FILES=$(find services/customer-service/target/surefire-reports -name "TEST-*.xml" 2>/dev/null || true)
 
           if [ -z "$REPORT_FILES" ]; then
-            echo "❌ ERROR: No Surefire XML reports found for ArchUnit tests."
-            echo "   Verify that *ArchTest or *ArchitectureTest classes exist in:"
-            echo "   services/customer-service/src/test/java"
+            echo "❌ ERROR: No ArchUnit test reports found. Verify *ArchTest/*ArchitectureTest classes exist."
             exit 1
           fi
 
           if ! grep -q 'tests="[1-9]' $REPORT_FILES; then
-            echo "❌ ERROR: Surefire reports exist, but no ArchUnit tests were executed."
-            echo "   Expected: tests attribute with value > 0"
-            grep 'tests=' $REPORT_FILES || echo "   (no tests= attribute found)"
+            echo "❌ ERROR: ArchUnit test reports exist, but no tests were executed."
             exit 1
           fi
-
           echo "✅ ArchUnit tests executed successfully"
-          grep 'tests=' $REPORT_FILES | head -5
 
   # ─────────────────────────────────────────────────────────────
   # Gate 4 — Behavioral (Spring Boot Jackson + Domain)
@@ -330,7 +295,9 @@ jobs:
       - name: Stop application
         if: always()
         run: |
-          kill ${{ env.APP_PID }} || true
+          if [ -n "${APP_PID:-}" ]; then
+            kill "$APP_PID" || true
+          fi
           docker stop customer_db || true
           docker rm customer_db || true
 

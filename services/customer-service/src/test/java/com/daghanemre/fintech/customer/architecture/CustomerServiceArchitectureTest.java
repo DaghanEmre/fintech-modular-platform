@@ -12,7 +12,6 @@ import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -31,7 +30,7 @@ import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 /**
  * Production-grade architecture enforcement suite for customer-service (v4.8).
  * 
- * <p>Rule Count: 23 active + 1 disabled = 24 total
+ * <p>Rule Count: 24 active
  */
 @DisplayName("Customer Service Architecture Enforcement Tests (v4.8)")
 class CustomerServiceArchitectureTest {
@@ -284,12 +283,11 @@ class CustomerServiceArchitectureTest {
                     .check(classes);
         }
 
-        @Disabled("DTO mapping not fully established")
         @Test
-        void domainModelsMustNotBeExposedInApi() {
+        void apiContractsMustNotExposeDomainModels() {
             noClasses()
-                    .that().resideInAPackage("..adapter.rest..")
-                    .and().haveSimpleNameNotEndingWith("Mapper")
+                    .that().resideInAPackage("..adapter.rest.dto..")
+                    .and(DescribedPredicate.or(simpleNameEndingWith("Request"), simpleNameEndingWith("Response")))
                     .should().dependOnClassesThat().resideInAPackage("..domain.model..")
                     .check(classes);
         }

@@ -9,7 +9,7 @@ Integration adapter for Open Banking APIs.
 - Payment initiation via Open Banking
 
 ## Technology Stack
-- Java 17+
+- Java 21+
 - Spring Boot
 - REST Client
 
