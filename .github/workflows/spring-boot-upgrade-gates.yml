@@ -11,20 +11,13 @@ env:
   JAVA_DISTRIBUTION: 'temurin'
   MAVEN_OPTS: '-Xmx2g -XX:+UseG1GC'
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Pipeline: 6 gates in sequential order, matching ADR-0008 validation pipeline.
-# All gates are HARD: no continue-on-error. A failing gate stops the pipeline.
-# Soft/advisory behavior is explicitly documented — never implicit.
-# ─────────────────────────────────────────────────────────────────────────────
+# All gates are hard gates: no continue-on-error. A failing gate stops the pipeline.
+# Soft/advisory behavior is explicitly documented, never implicit.
 
 jobs:
-
-  # ─────────────────────────────────────────────────────────────
-  # Gate 1 — Dependency Resolution
-  # Validates: No old Spring 3.2.x; dependency convergence enforced.
-  # ─────────────────────────────────────────────────────────────
   gate-1-dependency-resolution:
-    name: "Gate 1 — Dependency Resolution"
+    name: "Gate 1 - Dependency Resolution"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,23 +33,19 @@ jobs:
         run: mvn dependency:tree -Dincludes=org.springframework.boot -B
 
       - name: Run Maven Enforcer via validate phase
-        # Direct 'mvn enforcer:enforce' ignores <execution> blocks — rules are lifecycle-bound.
-        # Running 'validate' phase correctly triggers enforce-platform-baseline and enforce-banned-namespace.
+        # Direct 'mvn enforcer:enforce' ignores lifecycle-bound <execution> blocks.
         run: mvn validate -B
 
       - name: Upload dependency tree as artifact
         run: mvn dependency:tree > dependency-tree.txt
+
       - uses: actions/upload-artifact@v4
         with:
           name: dependency-tree
           path: dependency-tree.txt
 
-  # ─────────────────────────────────────────────────────────────
-  # Gate 2 — Compile
-  # Validates: All modules compile under Java 21 with --release 21.
-  # ─────────────────────────────────────────────────────────────
   gate-2-compile:
-    name: "Gate 2 — Compile"
+    name: "Gate 2 - Compile"
     runs-on: ubuntu-latest
     needs: gate-1-dependency-resolution
     steps:
@@ -72,13 +61,8 @@ jobs:
       - name: Compile all modules
         run: mvn clean compile -DskipTests=true -B -V
 
-  # ─────────────────────────────────────────────────────────────
-  # Gate 3 — Architecture Integrity (ArchUnit)
-  # HARD gate: architectural violations fail the build.
-  # Validates: Hexagonal boundaries, domain purity, Spec pattern.
-  # ─────────────────────────────────────────────────────────────
   gate-3-architecture-integrity:
-    name: "Gate 3 — Architecture Integrity (ArchUnit)"
+    name: "Gate 3 - Architecture Integrity (ArchUnit)"
     runs-on: ubuntu-latest
     needs: gate-2-compile
     steps:
@@ -91,50 +75,40 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: Install fintech-common (skip tests — no ArchUnit tests exist in this module)
-        # -am with -Dtest pattern propagates to ALL reactor modules, causing Surefire to fail
-        # on fintech-common (which has no *ArchTest/*ArchitectureTest classes).
-        # Solution: install fintech-common independently first, then scope ArchUnit run to customer-service only.
+      - name: Install root parent POM
+        # fintech-common declares the platform root as its parent.
+        # Installing only the root POM lets Maven resolve that parent when fintech-common
+        # is installed independently before the customer-service-only ArchUnit run.
+        run: mvn install -N -DskipTests -B
+
+      - name: Install fintech-common without tests
+        # -am with a filtered -Dtest pattern propagates to all reactor modules and can
+        # fail in fintech-common, which has no ArchUnit test classes.
         run: mvn install -pl common/fintech-common -DskipTests -B
 
       - name: Run ArchUnit tests (customer-service only)
-        # HARD gate — architecture is a first-class invariant.
-        #
-        # CRITICAL: Do NOT use -am here. It would re-add fintech-common to the reactor,
-        # causing Surefire to apply -Dtest pattern matching across all modules.
-        # Result: "No tests matching pattern" error in fintech-common (which has no *ArchTest classes).
-        #
-        # Solution: Single -pl scope to customer-service only. fintech-common is already in
-        # the local Maven cache from the install step above, so dependency resolution works.
-        #
-        # -DfailIfNoTests=true enforces that ArchUnit test classes MUST exist in customer-service.
-        # If no *ArchTest/*ArchitectureTest classes are found, the gate fails loudly.
+        # Do not use -am here. fintech-common is already in the local Maven cache.
+        # -DfailIfNoTests=true enforces that ArchUnit test classes exist.
         run: mvn test -pl services/customer-service -Dtest="*ArchTest,*ArchitectureTest" -DfailIfNoTests=true -B
 
       - name: Verify ArchUnit test execution (sanity check)
-        # Additional safety: confirm that at least one ArchUnit test ran.
-        # This prevents silent gate passes if the test pattern accidentally matches nothing.
+        # Confirm that at least one ArchUnit test ran, preventing silent gate passes.
         run: |
           REPORT_FILES=$(find services/customer-service/target/surefire-reports -name "TEST-*.xml" 2>/dev/null || true)
 
           if [ -z "$REPORT_FILES" ]; then
-            echo "❌ ERROR: No ArchUnit test reports found. Verify *ArchTest/*ArchitectureTest classes exist."
+            echo "ERROR: No ArchUnit test reports found. Verify *ArchTest/*ArchitectureTest classes exist."
             exit 1
           fi
 
           if ! grep -q 'tests="[1-9]' $REPORT_FILES; then
-            echo "❌ ERROR: ArchUnit test reports exist, but no tests were executed."
+            echo "ERROR: ArchUnit test reports exist, but no tests were executed."
             exit 1
           fi
-          echo "✅ ArchUnit tests executed successfully"
+          echo "ArchUnit tests executed successfully"
 
-  # ─────────────────────────────────────────────────────────────
-  # Gate 4 — Behavioral (Spring Boot Jackson + Domain)
-  # Validates: Spring Boot runtime serialization contract via @JsonTest.
-  # Validates: Domain invariants via unit tests.
-  # ─────────────────────────────────────────────────────────────
   gate-4-behavioral:
-    name: "Gate 4 — Behavioral (Jackson + Domain)"
+    name: "Gate 4 - Behavioral (Jackson + Domain)"
     runs-on: ubuntu-latest
     needs: gate-2-compile
     steps:
@@ -148,9 +122,8 @@ jobs:
           cache: maven
 
       - name: Run all customer-service unit tests
-        # Gate 4 runs all unit tests in customer-service and its dependencies for full test coverage.
-        # Using -am automatically resolves reactor dependencies (fintech-common) and root POM first.
-        # Unlike Gate 3, here we use -am because we want to run ALL test patterns, not a filtered subset.
+        # Gate 4 runs customer-service and required upstream module unit tests.
+        # -am is safe here because this gate intentionally runs all test patterns.
         run: mvn test -pl services/customer-service -am -B
 
       - name: Upload test reports on failure
@@ -162,13 +135,8 @@ jobs:
             services/customer-service/target/surefire-reports/
             common/fintech-common/target/surefire-reports/
 
-  # ─────────────────────────────────────────────────────────────
-  # Gate 5 — Integration (Testcontainers + PostgreSQL)
-  # Validates: JPA mapping, enum round-trip, persistence adapter.
-  # Docker is available by default on GitHub-hosted runners.
-  # ─────────────────────────────────────────────────────────────
   gate-5-integration:
-    name: "Gate 5 — Integration (Testcontainers + DB)"
+    name: "Gate 5 - Integration (Testcontainers + DB)"
     runs-on: ubuntu-latest
     needs:
       - gate-3-architecture-integrity
@@ -187,8 +155,7 @@ jobs:
         run: docker ps
 
       - name: Run integration tests (customer-service only)
-        # Selective -pl avoids running integration tests for unrelated modules.
-        # -verify phase includes both unit (-test) and integration (-failsafe) test execution.
+        # The verify phase includes unit tests and failsafe integration tests.
         run: mvn verify -pl common/fintech-common,services/customer-service -B
         env:
           TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE: /var/run/docker.sock
@@ -200,13 +167,8 @@ jobs:
           name: failsafe-reports
           path: services/customer-service/target/failsafe-reports/
 
-  # ─────────────────────────────────────────────────────────────
-  # Gate 6 — Observability Smoke Test
-  # Validates: Actuator health, metrics endpoint, Prometheus metrics.
-  # Health polling replaces fixed sleep to prevent flaky startup races.
-  # ─────────────────────────────────────────────────────────────
   gate-6-observability:
-    name: "Gate 6 — Observability Smoke"
+    name: "Gate 6 - Observability Smoke"
     runs-on: ubuntu-latest
     needs: gate-5-integration
     steps:
@@ -219,7 +181,7 @@ jobs:
           distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: maven
 
-      - name: Package application (skip tests — already verified in Gate 5)
+      - name: Package application without tests
         run: mvn clean package -DskipTests -pl common/fintech-common,services/customer-service -B
 
       - name: Start Postgres container for smoke test
@@ -231,16 +193,15 @@ jobs:
             -p 5432:5432 \
             -d postgres:15
 
-          # Polling for readiness is safer than fixed sleep
           for i in {1..20}; do
             if docker exec customer_db pg_isready -U postgres -d customer_db; then
-              echo "✅ Postgres is ready"
+              echo "Postgres is ready"
               exit 0
             fi
-            echo "Attempt $i/20 — waiting for postgres..."
+            echo "Attempt $i/20 - waiting for postgres..."
             sleep 2
           done
-          echo "❌ Postgres failed to start"
+          echo "Postgres failed to start"
           exit 1
 
       - name: Start customer-service in background
@@ -251,46 +212,44 @@ jobs:
             --server.port=8081 > /tmp/app.log 2>&1 &
           echo "APP_PID=$!" >> $GITHUB_ENV
 
-      - name: Wait for application readiness (health polling — max 60s)
-        # Polling replaces fixed 'sleep 10': handles CI runner variability.
+      - name: Wait for application readiness
         run: |
           for i in {1..30}; do
             if curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1; then
-              echo "✅ Application ready on attempt $i"
+              echo "Application ready on attempt $i"
               exit 0
             fi
-            echo "Attempt $i/30 — waiting 2s..."
+            echo "Attempt $i/30 - waiting 2s..."
             sleep 2
           done
-          echo "❌ Application failed to start within 60 seconds"
+          echo "Application failed to start within 60 seconds"
           cat /tmp/app.log
           exit 1
 
-      - name: Gate 6a — Health endpoint is UP
+      - name: Gate 6a - Health endpoint is UP
         run: |
           STATUS=$(curl -sf http://localhost:8081/actuator/health | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
           echo "Health status: $STATUS"
           [ "$STATUS" = "UP" ] || (echo "Health is not UP"; exit 1)
-          echo "✅ Health endpoint OK"
+          echo "Health endpoint OK"
 
-      - name: Gate 6b — Metrics endpoint reachable
+      - name: Gate 6b - Metrics endpoint reachable
         run: |
           curl -sf http://localhost:8081/actuator/metrics > /dev/null
-          echo "✅ Metrics endpoint OK"
+          echo "Metrics endpoint OK"
 
-      - name: Gate 6c — Core JVM metrics present in Prometheus output
-        # Stable grep: 'jvm_memory' prefix is preserved across Micrometer minor versions.
-        # Exact metric name (e.g., jvm_memory_used_bytes vs jvm_memory_usage_bytes) may vary.
+      - name: Gate 6c - Core JVM metrics present in Prometheus output
+        # The jvm_memory prefix is stable across Micrometer minor versions.
         run: |
           METRICS=$(curl -sf http://localhost:8081/actuator/prometheus)
-          echo "$METRICS" | grep -q "jvm_memory" || (echo "❌ jvm_memory metrics missing from Prometheus output"; exit 1)
-          echo "✅ Core JVM metrics present in Prometheus endpoint"
+          echo "$METRICS" | grep -q "jvm_memory" || (echo "jvm_memory metrics missing from Prometheus output"; exit 1)
+          echo "Core JVM metrics present in Prometheus endpoint"
 
-      - name: Gate 6d — Application tag present on metrics
+      - name: Gate 6d - Application tag present on metrics
         run: |
           METRICS=$(curl -sf http://localhost:8081/actuator/prometheus)
-          echo "$METRICS" | grep -q 'application="customer-service"' || (echo "❌ application metric tag missing"; exit 1)
-          echo "✅ Application metric tag present"
+          echo "$METRICS" | grep -q 'application="customer-service"' || (echo "application metric tag missing"; exit 1)
+          echo "Application metric tag present"
 
       - name: Stop application
         if: always()
@@ -308,11 +267,8 @@ jobs:
           name: application-log
           path: /tmp/app.log
 
-  # ─────────────────────────────────────────────────────────────
-  # Summary — All Gates Must Pass
-  # ─────────────────────────────────────────────────────────────
   summary:
-    name: "All Gates Passed ✅"
+    name: "All Gates Passed"
     runs-on: ubuntu-latest
     needs:
       - gate-1-dependency-resolution
@@ -340,7 +296,7 @@ jobs:
             fi
           done
           if [ "$FAILED" = "true" ]; then
-            echo "❌ One or more Spring Boot upgrade validation gates failed."
+            echo "One or more Spring Boot upgrade validation gates failed."
             exit 1
           fi
-          echo "✅ All 6 Spring Boot 3.5 upgrade validation gates passed. Merge approved."
+          echo "All 6 Spring Boot 3.5 upgrade validation gates passed. Merge approved."
