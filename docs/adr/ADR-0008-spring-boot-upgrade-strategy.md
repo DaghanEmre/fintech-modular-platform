@@ -113,9 +113,9 @@ mvn test -Dtest="*ArchTest,*ArchitectureTest"
 
 ### Gate 4 — Behavioral (Domain + Jackson)
 ```bash
-mvn test -Dtest="CustomerStatusSerializationTest,CustomerStatusTest"
+mvn test -pl services/customer-service -am
 ```
-**Validates**: Enum serialization stability, `safeParse` contract, Jackson deserialization drift.
+**Validates**: All customer-service unit tests, domain invariants, Specification pattern contracts, enum serialization stability, `safeParse` contract, and Jackson deserialization drift through Spring Boot's configured `ObjectMapper` via `@JsonTest`.
 
 ### Gate 5 — Integration (Persistence + Runtime)
 ```bash
@@ -161,7 +161,7 @@ Verify post-upgrade:
 
 | Concern | Recommendation | Priority |
 |---|---|---|
-| CI enforcement | Add ArchUnit + Integration + Observability gates to GitHub Actions | High |
+| CI enforcement | Maintain and extend GitHub Actions gates as new services are added | High |
 | Dependency governance enforcement | Add `maven-enforcer-plugin` (Java 21 required, no duplicate deps, dependency convergence) | High |
 | Supply-chain compliance | Add CycloneDX SBOM generation (`cyclonedx-maven-plugin`) | Medium |
 | Unknown enum handling | Evaluate `@JsonEnumDefaultValue` on `UNKNOWN` sentinel — track in ADR-0006 | Low |

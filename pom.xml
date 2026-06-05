@@ -209,12 +209,9 @@
                         </configuration>
                     </execution>
 
-                    <!-- EXECUTION 2: Banned EOL dependencies -->
+                    <!-- EXECUTION 2: Banned legacy Java EE namespace dependencies -->
                     <!--
-                      Only Spring Boot 3.2.x is EOL (since 2024-12-31).
-                      This execution enforces a ban on EOL Spring Boot versions via Maven Enforcer's bannedDependencies rule.
-                      Wildcard version ranges are not supported, so we explicitly exclude the version range [1.0.0,3.3.0-M1).
-                      Dependency convergence already guards against transitive version drift.
+                      Enforces jakarta.* namespace usage. Spring Boot 3.x requires jakarta.* APIs.
                     -->
                     <execution>
                         <id>enforce-banned-namespace</id>
@@ -237,6 +234,10 @@
                     </execution>
 
                     <!-- EXECUTION 3: Banned EOL Spring Boot versions (ADR-0008) -->
+                    <!--
+                      Wildcard matching for version segments is avoided here; a Maven version range
+                      [1.0.0,3.3.0-M1) is used to ban EOL Spring Boot versions precisely.
+                    -->
                     <execution>
                         <id>enforce-banned-eol-spring-boot</id>
                         <phase>validate</phase>

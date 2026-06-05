@@ -238,18 +238,13 @@ jobs:
           curl -sf http://localhost:8081/actuator/metrics > /dev/null
           echo "Metrics endpoint OK"
 
-      - name: Gate 6c - Core JVM metrics present in Prometheus output
+      - name: Gate 6c+6d - Verify Prometheus metrics
         # The jvm_memory prefix is stable across Micrometer minor versions.
         run: |
           METRICS=$(curl -sf http://localhost:8081/actuator/prometheus)
           echo "$METRICS" | grep -q "jvm_memory" || (echo "jvm_memory metrics missing from Prometheus output"; exit 1)
-          echo "Core JVM metrics present in Prometheus endpoint"
-
-      - name: Gate 6d - Application tag present on metrics
-        run: |
-          METRICS=$(curl -sf http://localhost:8081/actuator/prometheus)
           echo "$METRICS" | grep -q 'application="customer-service"' || (echo "application metric tag missing"; exit 1)
-          echo "Application metric tag present"
+          echo "Core JVM metrics and application tag present"
 
       - name: Stop application
         if: always()
