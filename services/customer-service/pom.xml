@@ -5,113 +5,116 @@
          https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <!--
+    Parent: Platform root (Dependency Governor)
+    - All dep versions flow from root dependencyManagement (BOM)
+    - All plugin versions flow from root pluginManagement
+    - NO spring-boot-starter-parent here (ADR-0008: explicit BOM strategy)
+    -->
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.1</version>
-        <relativePath/>
+        <groupId>com.daghanemre.fintech</groupId>
+        <artifactId>fintech-modular-platform</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <groupId>com.daghanemre.fintech</groupId>
     <artifactId>customer-service</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
     <name>customer-service</name>
-    <description>Customer management service</description>
+    <description>Customer management service — Hexagonal Architecture</description>
 
-    <properties>
-        <java.version>17</java.version>
-        <mapstruct.version>1.5.5.Final</mapstruct.version>
-        <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
-    </properties>
+    <!-- No <properties> block: java.version and all versions inherited from root -->
 
     <dependencies>
-        <!-- Spring Boot Starters -->
+
+        <!-- ── Spring Boot Starters ───────────────────────────────────── -->
+        <!-- Versions governed by spring-boot-dependencies BOM in root     -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-        
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
-        
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
-
-        <!-- Spring Boot Actuator (Observability) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+            <scope>runtime</scope>
+        </dependency>
 
-        <!-- Database -->
+        <!-- ── Database ──────────────────────────────────────────────── -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
 
-        <!-- MapStruct -->
+        <!-- ── Mapping ───────────────────────────────────────────────── -->
+        <!-- Version governed by root dependencyManagement -->
         <dependency>
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct</artifactId>
-            <version>${mapstruct.version}</version>
         </dependency>
 
-        <!-- Lombok -->
+        <!-- ── Code Generation (compile-time only) ───────────────────── -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
 
-        <!-- Testing -->
+        <!-- ── Internal Platform Modules ─────────────────────────────── -->
+        <!-- Version governed by root dependencyManagement -->
+        <dependency>
+            <groupId>com.daghanemre.fintech</groupId>
+            <artifactId>fintech-common</artifactId>
+        </dependency>
+
+        <!-- ── Testing ───────────────────────────────────────────────── -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        
+
+        <!-- Testcontainers: governed by testcontainers-bom in root -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
-            <version>1.19.3</version>
             <scope>test</scope>
         </dependency>
-        
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
-            <version>1.19.3</version>
             <scope>test</scope>
         </dependency>
-        
-        <dependency>
-            <groupId>com.daghanemre.fintech</groupId>
-            <artifactId>fintech-common</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
-        
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>1.19.3</version>
             <scope>test</scope>
         </dependency>
 
+        <!-- ArchUnit: governed by root dependencyManagement -->
         <dependency>
             <groupId>com.tngtech.archunit</groupId>
             <artifactId>archunit-junit5</artifactId>
-            <version>1.2.1</version>
             <scope>test</scope>
         </dependency>
+
     </dependencies>
 
     <build>
         <plugins>
+
+            <!-- Version inherited from root pluginManagement -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
@@ -123,22 +126,32 @@
                         </exclude>
                     </excludes>
                 </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
-            
-            <!-- MapStruct + Lombok Configuration -->
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
                 <configuration>
-                    <source>17</source>
-                    <target>17</target>
                     <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.mapstruct</groupId>
-                            <artifactId>mapstruct-processor</artifactId>
-                            <version>${mapstruct.version}</version>
-                        </path>
+                        <!--
+                        CRITICAL: Processor order matters for correct code generation.
+
+                        1. lombok          — generates boilerplate first (getters/setters/builders)
+                        2. lombok-mapstruct-binding — bridges Lombok and MapStruct so MapStruct
+                                            can see Lombok-generated methods during processing
+                        3. mapstruct-processor — generates mapper implementations that rely on
+                                            Lombok-generated accessors from step 1
+
+                        Reversing MapStruct and Lombok causes silent compile success
+                        with broken mapper output at runtime.
+                        -->
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
@@ -149,22 +162,36 @@
                             <artifactId>lombok-mapstruct-binding</artifactId>
                             <version>${lombok-mapstruct-binding.version}</version>
                         </path>
+                        <path>
+                            <groupId>org.mapstruct</groupId>
+                            <artifactId>mapstruct-processor</artifactId>
+                            <version>${mapstruct.version}</version>
+                        </path>
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- Java 21+: use Mockito as an explicit agent instead of runtime self-attach. -->
+                    <argLine>-javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
+                </configuration>
+            </plugin>
+
+            <!-- Version + execution goals inherited from root pluginManagement -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <version>3.1.2</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>integration-test</goal>
-                            <goal>verify</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                <configuration>
+                    <classesDirectory>${project.build.outputDirectory}</classesDirectory>
+                    <!-- Keep integration-test JVM behavior aligned with unit tests. -->
+                    <argLine>-javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
+                </configuration>
             </plugin>
+
         </plugins>
     </build>
+
 </project>

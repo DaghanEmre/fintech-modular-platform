@@ -40,7 +40,7 @@ Java remains one of the most dominant languages in enterprise and financial syst
 
 This project aims to:
 - Leverage **classic enterprise Java patterns**
-- Experiment with **modern Java features** (Java 17+, Virtual Threads, Structured Concurrency)
+- Experiment with **modern Java features** (Java 21+, Virtual Threads, Structured Concurrency)
 - Compare **blocking, reactive, and event-driven** approaches
 - Apply Java in **high-throughput and distributed environments**
 
@@ -83,7 +83,7 @@ This reflects how **real enterprise systems grow and adapt**.
 
 Technologies will be introduced **incrementally**, not all at once.
 
-- Java 17+ (later Java 21+)
+- Java 21+
 - Spring Boot & Spring Cloud
 - Maven / Gradle
 - Oracle / IBM Db2 (conceptual & local setups)
@@ -92,6 +92,16 @@ Technologies will be introduced **incrementally**, not all at once.
 - Spring Cloud Config
 - Distributed tracing & logging (OpenTelemetry, Graylog, etc.)
 - Docker & Cloud-ready design (AWS-compatible)
+
+## Local Build
+
+This project requires **Java 21**. The root Maven build enforces this baseline.
+
+```bash
+mvn clean compile
+mvn test
+mvn verify
+```
 
 ---
 

@@ -1,7 +1,13 @@
+# Packaged test profile for CI smoke runs.
+# Unit/integration tests use src/test/resources/application-test.yml.
 spring:
   datasource:
-    # Testcontainers will override this
-    url: jdbc:tc:postgresql:15:///test_db
+    # Gate 6 starts PostgreSQL explicitly, so the packaged jar must use the
+    # regular PostgreSQL driver instead of the Testcontainers JDBC proxy.
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/customer_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: create-drop
@@ -15,10 +21,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,info,metrics,prometheus
 
 # Test logging - minimal
 logging:
   level:
     root: WARN
-    com.daghanemre.fintech.customer: INFO
+    "[com.daghanemre.fintech.customer]": INFO

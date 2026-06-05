@@ -87,7 +87,7 @@ FinTech systems naturally introduce realistic engineering challenges:
 
 Java is dominant in enterprise and financial systems. This project:
 - Leverages classic enterprise Java patterns
-- Experiments with modern Java 17+ features (Virtual Threads, Structured Concurrency)
+- Experiments with modern Java 21+ features (Virtual Threads, Structured Concurrency)
 - Compares blocking, reactive, and event-driven approaches
 - Applies Java in high-throughput, distributed environments
 
@@ -495,10 +495,9 @@ public class CustomerNotDeletedSpec implements Specification<Customer> {
     }
 }
 
-// Naming convention examples:
-// Atomic Positive: {Entity}Is{State}Spec
-// Atomic Negative: {Entity}Not{ForbiddenState}Spec
-// Semantic: {Entity}Can{BusinessOperation}Spec
+// Naming convention:
+// Atomic: {Entity}Is/Not{Rule}Spec (e.g. CustomerIsActiveSpec)
+// Semantic: {Entity}Can{Action}Spec (e.g. CustomerCanBeActivatedSpec)
 ```
 
 ### Semantic Specifications
@@ -1045,8 +1044,8 @@ Before approving domain code:
 
 | Layer | Technology | Rationale |
 | --- | --- | --- |
-| **JDK** | Java 17+ (targeting 21+) | Modern language features, Virtual Threads for future exploration |
-| **Framework** | Spring Boot 3.2.x | Dominant enterprise framework; allows easy swapping |
+| **JDK** | Java 21+ | Modern language features, Virtual Threads for future exploration |
+| **Framework** | Spring Boot 3.5.x | Dominant enterprise framework; allows easy swapping |
 | **Build** | Maven | Industry standard; coordinates multi-module builds |
 | **Local Database** | PostgreSQL 15+ with Testcontainers | Open-source; similar transaction semantics to Oracle |
 | **Testing** | JUnit 5, Testcontainers | Industry standard; enables integration testing without external infra |

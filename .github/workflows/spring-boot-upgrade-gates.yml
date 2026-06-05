@@ -1,0 +1,297 @@
+name: Spring Boot 3.5 Upgrade Validation Gates (ADR-0008)
+
+on:
+  push:
+    branches: [ main, develop, feature/spring-boot-3.5-upgrade ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  JAVA_VERSION: '21'
+  JAVA_DISTRIBUTION: 'temurin'
+  MAVEN_OPTS: '-Xmx2g -XX:+UseG1GC'
+
+# Pipeline: 6 gates in sequential order, matching ADR-0008 validation pipeline.
+# All gates are hard gates: no continue-on-error. A failing gate stops the pipeline.
+# Soft/advisory behavior is explicitly documented, never implicit.
+
+jobs:
+  gate-1-dependency-resolution:
+    name: "Gate 1 - Dependency Resolution"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: Check Spring Boot version in dependency tree
+        run: mvn dependency:tree -Dincludes=org.springframework.boot -B
+
+      - name: Run Maven Enforcer via validate phase
+        # Direct 'mvn enforcer:enforce' ignores lifecycle-bound <execution> blocks.
+        run: mvn validate -B
+
+      - name: Upload dependency tree as artifact
+        run: mvn dependency:tree > dependency-tree.txt
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: dependency-tree
+          path: dependency-tree.txt
+
+  gate-2-compile:
+    name: "Gate 2 - Compile"
+    runs-on: ubuntu-latest
+    needs: gate-1-dependency-resolution
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: Compile all modules
+        run: mvn clean compile -DskipTests=true -B -V
+
+  gate-3-architecture-integrity:
+    name: "Gate 3 - Architecture Integrity (ArchUnit)"
+    runs-on: ubuntu-latest
+    needs: gate-2-compile
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: Install root parent POM
+        # fintech-common declares the platform root as its parent.
+        # Installing only the root POM lets Maven resolve that parent when fintech-common
+        # is installed independently before the customer-service-only ArchUnit run.
+        run: mvn install -N -DskipTests -B
+
+      - name: Install fintech-common without tests
+        # -am with a filtered -Dtest pattern propagates to all reactor modules and can
+        # fail in fintech-common, which has no ArchUnit test classes.
+        run: mvn install -pl common/fintech-common -DskipTests -B
+
+      - name: Run ArchUnit tests (customer-service only)
+        # Do not use -am here. fintech-common is already in the local Maven cache.
+        # -DfailIfNoTests=true enforces that ArchUnit test classes exist.
+        run: mvn test -pl services/customer-service -Dtest="*ArchTest,*ArchitectureTest" -DfailIfNoTests=true -B
+
+      - name: Verify ArchUnit test execution (sanity check)
+        # Confirm that at least one ArchUnit test ran, preventing silent gate passes.
+        run: |
+          REPORT_FILES=$(find services/customer-service/target/surefire-reports -name "TEST-*.xml" 2>/dev/null || true)
+
+          if [ -z "$REPORT_FILES" ]; then
+            echo "ERROR: No ArchUnit test reports found. Verify *ArchTest/*ArchitectureTest classes exist."
+            exit 1
+          fi
+
+          if ! grep -q 'tests="[1-9]' $REPORT_FILES; then
+            echo "ERROR: ArchUnit test reports exist, but no tests were executed."
+            exit 1
+          fi
+          echo "ArchUnit tests executed successfully"
+
+  gate-4-behavioral:
+    name: "Gate 4 - Behavioral (Jackson + Domain)"
+    runs-on: ubuntu-latest
+    needs: gate-2-compile
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: Run all customer-service unit tests
+        # Gate 4 runs customer-service and required upstream module unit tests.
+        # -am is safe here because this gate intentionally runs all test patterns.
+        run: mvn test -pl services/customer-service -am -B
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: surefire-reports-gate4
+          path: |
+            services/customer-service/target/surefire-reports/
+            common/fintech-common/target/surefire-reports/
+
+  gate-5-integration:
+    name: "Gate 5 - Integration (Testcontainers + DB)"
+    runs-on: ubuntu-latest
+    needs:
+      - gate-3-architecture-integrity
+      - gate-4-behavioral
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: Verify Docker available (required by Testcontainers)
+        run: docker ps
+
+      - name: Run integration tests (customer-service only)
+        # The verify phase includes unit tests and failsafe integration tests.
+        run: mvn verify -pl common/fintech-common,services/customer-service -B
+        env:
+          TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE: /var/run/docker.sock
+
+      - name: Upload failsafe reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: failsafe-reports
+          path: services/customer-service/target/failsafe-reports/
+
+  gate-6-observability:
+    name: "Gate 6 - Observability Smoke"
+    runs-on: ubuntu-latest
+    needs: gate-5-integration
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          cache: maven
+
+      - name: Package application without tests
+        run: mvn clean package -DskipTests -pl common/fintech-common,services/customer-service -B
+
+      - name: Start Postgres container for smoke test
+        run: |
+          docker run --name customer_db \
+            -e POSTGRES_DB=customer_db \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=postgres \
+            -p 5432:5432 \
+            -d postgres:15
+
+          for i in {1..20}; do
+            if docker exec customer_db pg_isready -U postgres -d customer_db; then
+              echo "Postgres is ready"
+              exit 0
+            fi
+            echo "Attempt $i/20 - waiting for postgres..."
+            sleep 2
+          done
+          echo "Postgres failed to start"
+          exit 1
+
+      - name: Start customer-service in background
+        run: |
+          cd services/customer-service
+          java -jar target/customer-service-*.jar \
+            --spring.profiles.active=test \
+            --server.port=8081 > /tmp/app.log 2>&1 &
+          echo "APP_PID=$!" >> $GITHUB_ENV
+
+      - name: Wait for application readiness
+        run: |
+          for i in {1..30}; do
+            if curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1; then
+              echo "Application ready on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i/30 - waiting 2s..."
+            sleep 2
+          done
+          echo "Application failed to start within 60 seconds"
+          cat /tmp/app.log
+          exit 1
+
+      - name: Gate 6a - Health endpoint is UP
+        run: |
+          STATUS=$(curl -sf http://localhost:8081/actuator/health | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
+          echo "Health status: $STATUS"
+          [ "$STATUS" = "UP" ] || (echo "Health is not UP"; exit 1)
+          echo "Health endpoint OK"
+
+      - name: Gate 6b - Metrics endpoint reachable
+        run: |
+          curl -sf http://localhost:8081/actuator/metrics > /dev/null
+          echo "Metrics endpoint OK"
+
+      - name: Gate 6c+6d - Verify Prometheus metrics
+        # The jvm_memory prefix is stable across Micrometer minor versions.
+        run: |
+          METRICS=$(curl -sf http://localhost:8081/actuator/prometheus)
+          echo "$METRICS" | grep -q "jvm_memory" || (echo "jvm_memory metrics missing from Prometheus output"; exit 1)
+          echo "$METRICS" | grep -q 'application="customer-service"' || (echo "application metric tag missing"; exit 1)
+          echo "Core JVM metrics and application tag present"
+
+      - name: Stop application
+        if: always()
+        run: |
+          if [ -n "${APP_PID:-}" ]; then
+            kill "$APP_PID" || true
+          fi
+          docker stop customer_db || true
+          docker rm customer_db || true
+
+      - name: Upload application log on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: application-log
+          path: /tmp/app.log
+
+  summary:
+    name: "All Gates Passed"
+    runs-on: ubuntu-latest
+    needs:
+      - gate-1-dependency-resolution
+      - gate-2-compile
+      - gate-3-architecture-integrity
+      - gate-4-behavioral
+      - gate-5-integration
+      - gate-6-observability
+    if: always()
+    steps:
+      - name: Evaluate all gate results
+        run: |
+          GATES=(
+            "${{ needs.gate-1-dependency-resolution.result }}"
+            "${{ needs.gate-2-compile.result }}"
+            "${{ needs.gate-3-architecture-integrity.result }}"
+            "${{ needs.gate-4-behavioral.result }}"
+            "${{ needs.gate-5-integration.result }}"
+            "${{ needs.gate-6-observability.result }}"
+          )
+          FAILED=false
+          for GATE in "${GATES[@]}"; do
+            if [ "$GATE" = "failure" ] || [ "$GATE" = "cancelled" ]; then
+              FAILED=true
+            fi
+          done
+          if [ "$FAILED" = "true" ]; then
+            echo "One or more Spring Boot upgrade validation gates failed."
+            exit 1
+          fi
+          echo "All 6 Spring Boot 3.5 upgrade validation gates passed. Merge approved."

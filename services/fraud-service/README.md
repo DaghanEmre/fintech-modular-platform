@@ -9,7 +9,7 @@ Real-time fraud detection and prevention service.
 - ML-based anomaly detection
 
 ## Technology Stack
-- Java 17+
+- Java 21+
 - Spring Boot
 - Redis (caching)
 - Kafka (event streaming)
