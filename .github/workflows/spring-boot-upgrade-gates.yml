@@ -39,7 +39,7 @@ jobs:
       - name: Upload dependency tree as artifact
         run: mvn dependency:tree > dependency-tree.txt
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: dependency-tree
           path: dependency-tree.txt
@@ -128,7 +128,7 @@ jobs:
 
       - name: Upload test reports on failure
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: surefire-reports-gate4
           path: |
@@ -162,7 +162,7 @@ jobs:
 
       - name: Upload failsafe reports on failure
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: failsafe-reports
           path: services/customer-service/target/failsafe-reports/
@@ -257,7 +257,7 @@ jobs:
 
       - name: Upload application log on failure
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: application-log
           path: /tmp/app.log
